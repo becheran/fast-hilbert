@@ -3,8 +3,12 @@ name = "fast_hilbert"
 version = "0.1.0"
 authors = ["Armin <becherarmin@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Fast Hilbert 2D curve computation using an efficient Lookup Table (LUT)."
+keywords = [ "space-filling curve", "hilbert", "peano curves", "mapping", "algorithm"]
+readme = "README.md"
+license = "MIT"
+categories = ["algorithms"]
+repository = "https://github.com/becheran/fast-hilbert"
 
 [dev-dependencies]
 image = "0.23.13"
