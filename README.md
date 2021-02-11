@@ -1,5 +1,10 @@
 # Fast Hilbert
 
+[![doc](https://docs.rs/fast_hilbert/badge.svg)](https://docs.rs/fast_hilbert)
+[![crates.io](https://img.shields.io/crates/v/fast_hilbert.svg)](https://crates.io/crates/fast_hilbert)
+[![usage](https://badgen.net/crates/d/fast_hilbert)](https://crates.io/crates/fast_hilbert)
+[![license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)*.
 
 ![hilbert](./doc/hilbert.png)
