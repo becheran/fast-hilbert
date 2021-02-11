@@ -1,0 +1,18 @@
+[package]
+name = "fast_hilbert"
+version = "0.1.0"
+authors = ["Armin <becherarmin@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dev-dependencies]
+image = "0.23.13"
+criterion = "0.3"
+hilbert = "0.1.1"
+hilbert_2d = "1.0.0"
+hilbert_curve = "0.2.0"
+
+[[bench]]
+name = "benchmark"
+harness = false
