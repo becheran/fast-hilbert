@@ -285,7 +285,8 @@ mod tests {
         }
     }
 
-    #[test]
+    // Only for rendering images
+    //#[test]
     fn write_image() {
         let order: u8 = 3;
 
