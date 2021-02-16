@@ -1,5 +1,6 @@
 # Fast Hilbert
 
+[![Build Status](https://github.com/becheran/fast-hilbert/workflows/Test/badge.svg)](https://github.com/becheran/fast-hilbert/actions?workflow=Test)
 [![doc](https://docs.rs/fast_hilbert/badge.svg)](https://docs.rs/fast_hilbert)
 [![crates.io](https://img.shields.io/crates/v/fast_hilbert.svg)](https://crates.io/crates/fast_hilbert)
 [![usage](https://badgen.net/crates/d/fast_hilbert)](https://crates.io/crates/fast_hilbert)
