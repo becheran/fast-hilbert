@@ -37,6 +37,12 @@ fn criterion_benchmark(c: &mut Criterion) {
             );
         })
     });
+
+    c.bench_function("lindel", |b| {
+        b.iter(|| {
+            lindel::hilbert_encode(black_box([42u32, 42]));
+        })
+    });
 }
 criterion_group!(
     name = benches;
