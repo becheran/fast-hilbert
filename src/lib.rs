@@ -80,11 +80,11 @@ const LUT_3_REV: [u8; 256] = [
 /// * `x` - Coordinate in 2D space. Must be < 2^`order`
 /// * `y` - Coordinate in 2D space.  Must be < 2^`order`
 /// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
-pub fn xy2h(x: u32, y: u32, order: u8) -> u64 {
-    assert!(order <= 32, "Order must be <= the input type length");
-    let max: u64 = (1 as u64) << order;
-    assert!((x as u64) < max, "Input must be < 2^order");
-    assert!((y as u64) < max, "Input must be < 2^order");
+pub fn xy2h(x: u32, y: u32) -> u64 {
+    let coor_bits = (core::mem::size_of::<u32>() * 8) as u32;
+    let useless_bits = (x|y).leading_zeros() & !1;
+    let useful_bits = coor_bits - useless_bits;
+    let order = useful_bits;
 
     let mut result: u64 = 0;
     let mut state = 0;
@@ -116,10 +116,11 @@ pub fn xy2h(x: u32, y: u32, order: u8) -> u64 {
 /// # Arguments
 /// * `h` - Coordinate in 1D hilbert space. Must be < (2^`order`) * 2.
 /// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
-pub fn h2xy(h: u64, order: u8) -> (u32, u32) {
-    assert!(order <= 32, "Order must be <= the input type length");
-    let max: u64 = (1 as u64) << (order + 1);
-    assert!(h < max, "Input must be < (2^order) * 2");
+pub fn h2xy(h: u64) -> (u32, u32) {
+    let coor_bits = (core::mem::size_of::<u32>() * 8) as u32;
+    let useless_bits = (h.leading_zeros()>>1) & !1;
+    let useful_bits = coor_bits - useless_bits;
+    let order = useful_bits;
 
     let mut x_result: u32 = 0;
     let mut y_result: u32 = 0;
@@ -224,41 +225,41 @@ mod tests {
     fn hilbert_and_rev() {
         let order = 16;
         for h in 0..(2usize.pow(order) - 1) {
-            let (x, y) = h2xy(h as u64, order as u8);
-            let res_h = xy2h(x, y, order as u8);
+            let (x, y) = h2xy(h as u64);
+            let res_h = xy2h(x, y);
             assert_eq!(h as u64, res_h);
         }
     }
 
     #[test]
     fn h2xy_one_bit() {
-        let (x0, y0) = h2xy(0b00, 1);
-        let (x1, y1) = h2xy(0b01, 1);
-        let (x2, y2) = h2xy(0b11, 1);
-        let (x3, y3) = h2xy(0b10, 1);
+        let (x0, y0) = h2xy(0b00);
+        let (x1, y1) = h2xy(0b01);
+        let (x2, y2) = h2xy(0b11);
+        let (x3, y3) = h2xy(0b10);
         assert_eq!((x0, y0), (0, 0));
-        assert_eq!((x1, y1), (0, 1));
-        assert_eq!((x2, y2), (1, 0));
         assert_eq!((x3, y3), (1, 1));
+        assert_eq!((x2, y2), (0, 1));
+        assert_eq!((x1, y1), (1, 0));
     }
 
     #[test]
     fn xy2h_one_bit() {
-        let d0 = xy2h(0, 0, 1);
-        let d1 = xy2h(0, 1, 1);
-        let d2 = xy2h(1, 0, 1);
-        let d3 = xy2h(1, 1, 1);
+        let d0 = xy2h(0, 0);
+        let d1 = xy2h(0, 1);
+        let d2 = xy2h(1, 0);
+        let d3 = xy2h(1, 1);
         assert_eq!(d0, 0b00);
-        assert_eq!(d1, 0b01);
-        assert_eq!(d2, 0b11);
+        assert_eq!(d1, 0b11);
+        assert_eq!(d2, 0b01);
         assert_eq!(d3, 0b10);
     }
 
     #[test]
     fn h2xy_two_bits() {
         for h in 0..8 {
-            let (rx, ry) = h2xy(h as u64, 2);
-            let h_cmp = xy2h(rx as u32, ry as u32, 2);
+            let (rx, ry) = h2xy(h as u64);
+            let h_cmp = xy2h(rx as u32, ry as u32);
             assert_eq!(h, h_cmp as usize);
         }
     }
@@ -268,7 +269,7 @@ mod tests {
         for x in 0..4 {
             for y in 0..4 {
                 let d = hilbert_curve::convert_2d_to_1d(x, y, 4);
-                let df = xy2h(x as u32, y as u32, 2);
+                let df = xy2h(x as u32, y as u32);
                 assert_eq!(d as u64, df);
             }
         }
@@ -276,11 +277,12 @@ mod tests {
 
     #[test]
     fn h2xy_test() {
-        for &bits in &[1, 2, 3, 8, 16] {
+        for &bits in &[1, 2, 3, 5, 8, 13, 16] {
+            let bits = (bits + 1) &!1;
             let numbers = 2usize.pow(bits);
             for d in (0..(numbers * numbers)).step_by(numbers as usize) {
                 let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
-                assert_eq!(xy2h(x as u32, y as u32, bits as u8), d as u64);
+                assert_eq!(xy2h(x as u32, y as u32), d as u64);
             }
         }
     }
@@ -300,7 +302,7 @@ mod tests {
             for y in 0..numbers {
                 let px = (x + 1) * base;
                 let py = (y + 1) * base;
-                let p = xy2h(x as u32, y as u32, order as u8);
+                let p = xy2h(x as u32, y as u32);
                 points[p as usize] = (px, py)
             }
         }
