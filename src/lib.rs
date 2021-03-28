@@ -82,7 +82,7 @@ const LUT_3_REV: [u8; 256] = [
 /// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
 pub fn xy2h(x: u32, y: u32) -> u64 {
     let coor_bits = (core::mem::size_of::<u32>() * 8) as u32;
-    let useless_bits = (x|y).leading_zeros() & !1;
+    let useless_bits = (x | y).leading_zeros() & !1;
     let useful_bits = coor_bits - useless_bits;
     let order = useful_bits;
 
@@ -118,7 +118,7 @@ pub fn xy2h(x: u32, y: u32) -> u64 {
 /// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
 pub fn h2xy(h: u64) -> (u32, u32) {
     let coor_bits = (core::mem::size_of::<u32>() * 8) as u32;
-    let useless_bits = (h.leading_zeros()>>1) & !1;
+    let useless_bits = (h.leading_zeros() >> 1) & !1;
     let useful_bits = coor_bits - useless_bits;
     let order = useful_bits;
 
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn h2xy_test() {
         for &bits in &[1, 2, 3, 5, 8, 13, 16] {
-            let bits = (bits + 1) &!1;
+            let bits = (bits + 1) & !1;
             let numbers = 2usize.pow(bits);
             for d in (0..(numbers * numbers)).step_by(numbers as usize) {
                 let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
