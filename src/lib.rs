@@ -287,7 +287,7 @@ mod tests {
 
     fn draw_hilber_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let size: usize = 256;
-        let border = 20;
+        let border = 2;
 
         let mut imgbuf = image::ImageBuffer::new(size as u32, size as u32);
 
@@ -338,7 +338,7 @@ mod tests {
     // Only for rendering images
     #[test]
     fn write_image() {
-        for i in 1..5 {
+        for i in 1..7 {
             let imgbuf = draw_hilber_curve(i);
             imgbuf.save(format!("doc/h{}.png", i)).unwrap();
         }

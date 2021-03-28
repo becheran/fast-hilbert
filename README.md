@@ -12,6 +12,8 @@ Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)*.
 ![h2](./doc/h2.png)
 ![h3](./doc/h3.png)
 ![h4](./doc/h4.png)
+![h5](./doc/h5.png)
+![h6](./doc/h6.png)
 
 * Convert from discrete 2D space to 1D hilbert space and reverse
 * Very fast using an efficient 512 Byte *LUT*
