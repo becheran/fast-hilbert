@@ -30,11 +30,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("fast_hilbert", |b| {
         b.iter(|| {
-            fast_hilbert::xy2h(
-                black_box(42 as u32),
-                black_box(42 as u32),
-                black_box(bits as u8),
-            );
+            fast_hilbert::xy2h(black_box(42 as u32), black_box(42 as u32));
         })
     });
 }

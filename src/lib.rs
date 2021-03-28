@@ -77,9 +77,8 @@ const LUT_3_REV: [u8; 256] = [
 
 /// Convert form 2D to 1D hilbert space
 /// # Arguments
-/// * `x` - Coordinate in 2D space. Must be < 2^`order`
-/// * `y` - Coordinate in 2D space.  Must be < 2^`order`
-/// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
+/// * `x` - Coordinate in 2D space
+/// * `y` - Coordinate in 2D space
 pub fn xy2h(x: u32, y: u32) -> u64 {
     let coor_bits = (core::mem::size_of::<u32>() * 8) as u32;
     let useless_bits = (x | y).leading_zeros() & !1;
@@ -114,8 +113,7 @@ pub fn xy2h(x: u32, y: u32) -> u64 {
 
 /// Convert form 1D hilbert space to 2D coordinates
 /// # Arguments
-/// * `h` - Coordinate in 1D hilbert space. Must be < (2^`order`) * 2.
-/// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
+/// * `h` - Coordinate in 1D hilbert space
 pub fn h2xy(h: u64) -> (u32, u32) {
     let coor_bits = (core::mem::size_of::<u32>() * 8) as u32;
     let useless_bits = (h.leading_zeros() >> 1) & !1;
@@ -287,27 +285,20 @@ mod tests {
         }
     }
 
-    // Only for rendering images
-    //#[test]
-    fn write_image() {
-        let order: u8 = 3;
+    fn draw_hilber_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
+        let size: usize = 256;
+        let border = 20;
 
-        let bits: usize = 8;
-        let numbers: usize = 2usize.pow(bits as u32);
+        let mut imgbuf = image::ImageBuffer::new(size as u32, size as u32);
 
-        let mut points: Vec<(usize, usize)> = vec![(0, 0); numbers * numbers];
-
-        let base = numbers / (numbers + 1);
-        for x in 0..numbers {
-            for y in 0..numbers {
-                let px = (x + 1) * base;
-                let py = (y + 1) * base;
-                let p = xy2h(x as u32, y as u32);
-                points[p as usize] = (px, py)
-            }
+        let mut points: Vec<(u32, u32)> = vec![(0, 0); 2usize.pow(iteration * 2)];
+        for i in 0..2usize.pow(iteration * 2) {
+            let (mut x, mut y) = h2xy(i as u64);
+            let step = (size as u32 - border * 2) / (2usize.pow(iteration) as u32 - 1);
+            x = x * step + border;
+            y = y * step + border;
+            points[i] = (x, y)
         }
-
-        let mut imgbuf = image::ImageBuffer::new(numbers as u32, numbers as u32);
 
         let mut prev = (0, 0);
         let white = image::Rgb([255 as u8, 255, 255]);
@@ -341,6 +332,15 @@ mod tests {
                 continue;
             }
         }
-        imgbuf.save("test.png").unwrap();
+        return imgbuf;
+    }
+
+    // Only for rendering images
+    #[test]
+    fn write_image() {
+        for i in 1..5 {
+            let imgbuf = draw_hilber_curve(i);
+            imgbuf.save(format!("doc/h{}.png", i)).unwrap();
+        }
     }
 }
