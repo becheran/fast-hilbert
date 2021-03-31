@@ -1,6 +1,6 @@
 [package]
 name = "fast_hilbert"
-version = "1.0.0"
+version = "1.0.1-alpha.0"
 authors = ["Armin <becherarmin@gmail.com>"]
 edition = "2018"
 description = "Fast Hilbert 2D curve computation using an efficient Lookup Table (LUT)."
