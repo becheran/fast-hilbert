@@ -33,7 +33,7 @@
 //! state is pre-computed and stored in a lookup table. The whole LUT can be packed in a 256 Byte long data-structure which fits easily in modern
 //! CPU caches and allow very fast lookups without any cache misses.
 //!
-//! Compared to other implementations, `fast_hilbert` is about **2.5 times faster** as comparable *rust* hilbert-curve implementations and uses only
+//! Compared to other implementations, `fast_hilbert` is about **12 times faster** compared to other *rust* hilbert-curve implementations and uses only
 //! **512 Bytes of RAM** for the lookup tables (one for 2D->1D and another for 1D->2D).
 //!
 
@@ -45,41 +45,50 @@ use core::convert::{From, TryInto};
 use core::ops::{BitOrAssign, ShlAssign, ShrAssign};
 use num_traits::{PrimInt, Zero};
 
-pub trait Double: num_traits::PrimInt + From<u8> + TryInto<usize> + BitOrAssign
+/// Unsigned integer input type which has a double value type as key
+pub trait Unsigned: num_traits::PrimInt + From<u8> + TryInto<usize> + BitOrAssign
 where
     Self::Key: PrimInt + ShrAssign + From<u8> + Zero + ShlAssign + BitOrAssign,
 {
-    type Key;
-    const SEVEN: Self;
-    const SIXTY_THREE: Self::Key;
+    type Key; // Double the self unsigned type
+    const SEVEN: Self; // Pattern needed for computation
+    const SIXTY_THREE: Self::Key; // Pattern needed for computation
 }
 
-impl Double for u64 {
+impl Unsigned for u64 {
     type Key = u128;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
-impl Double for u16 {
+impl Unsigned for u16 {
     type Key = u32;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
-impl Double for u8 {
+impl Unsigned for u8 {
     type Key = u16;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
-impl Double for u32 {
+impl Unsigned for u32 {
     type Key = u64;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
 
-/// Convert form 2D to 1D hilbert space
+/// Convert form 2D to 1D hilbert space.
+/// Input type `T` must have half the capacity of the result type. For example (u32, u32) => u64.
+///
 /// # Arguments
 /// * `x` - Coordinate in 2D space
 /// * `y` - Coordinate in 2D space
-pub fn xy2h<T: Double>(x: T, y: T) -> <T as Double>::Key
+///
+/// # Examples
+///```
+/// let hilbert = fast_hilbert::xy2h(1u64, 0);
+/// assert_eq!(hilbert, 01u128);
+///```
+pub fn xy2h<T: Unsigned>(x: T, y: T) -> <T as Unsigned>::Key
 where
     <T as TryInto<usize>>::Error: core::fmt::Debug,
 {
@@ -110,7 +119,7 @@ where
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
 
-    let mut result: <T as Double>::Key = <T as Double>::Key::zero();
+    let mut result: <T as Unsigned>::Key = <T as Unsigned>::Key::zero();
     let mut state = 0u8;
     let mut shift_factor: i8 = order as i8 - 3;
     loop {
@@ -121,8 +130,8 @@ where
             let index: usize = index.try_into().unwrap();
             let r: u8 = LUT_3[index];
             state = r & 0b11000000;
-            let r: <T as Double>::Key = r.into();
-            let mut hhh: <T as Double>::Key = r & sixty_three;
+            let r: <T as Unsigned>::Key = r.into();
+            let mut hhh: <T as Unsigned>::Key = r & sixty_three;
             hhh <<= ((shift_factor as u8) << 1).into();
             result = result | hhh;
             shift_factor -= 3;
@@ -132,8 +141,8 @@ where
             let y_in = (y << shift_factor.try_into().unwrap()) & seven;
             let index = x_in | y_in | state.into();
             let r: u8 = LUT_3[index.try_into().unwrap()];
-            let r: <T as Double>::Key = r.into();
-            let mut hhh: <T as Double>::Key = r & sixty_three;
+            let r: <T as Unsigned>::Key = r.into();
+            let mut hhh: <T as Unsigned>::Key = r & sixty_three;
             hhh >>= ((shift_factor as u8) << 1).into();
             result = result | hhh;
             return result;
@@ -142,13 +151,23 @@ where
 }
 
 /// Convert form 1D hilbert space to 2D coordinates
+///
+/// Input type `T` must have double the capacity of the result types. For example u64 => (u32, u32).
+///
 /// # Arguments
 /// * `h` - Coordinate in 1D hilbert space
-pub fn h2xy<T: Double>(h: <T as Double>::Key) -> (T, T)
+///
+/// # Examples
+///```
+/// let (x, y) = fast_hilbert::h2xy::<u64>(01u128);
+/// assert_eq!(x, 1u64);
+/// assert_eq!(y, 0u64);
+///```
+pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key) -> (T, T)
 where
     <T as TryInto<usize>>::Error: core::fmt::Debug,
-    <<T as Double>::Key as TryInto<u8>>::Error: core::fmt::Debug,
-    <T as Double>::Key: TryInto<u8>,
+    <<T as Unsigned>::Key as TryInto<u8>>::Error: core::fmt::Debug,
+    <T as Unsigned>::Key: TryInto<u8>,
 {
     // Mapping from hilbert states to 2D coordinates
     // SHHH => SXXXYYY
@@ -184,8 +203,8 @@ where
     let mut shift_factor: i8 = order as i8 - 3;
     loop {
         if shift_factor > 0 {
-            let h_in: <T as Double>::Key = h >> ((shift_factor as usize) << 1);
-            let h_in: <T as Double>::Key = h_in & sixty_three;
+            let h_in: <T as Unsigned>::Key = h >> ((shift_factor as usize) << 1);
+            let h_in: <T as Unsigned>::Key = h_in & sixty_three;
             let h_in: u8 = h_in.try_into().unwrap();
             let r: u8 = LUT_3_REV[state as usize | h_in as usize];
             state = r & 0b11000000;
@@ -199,8 +218,8 @@ where
             shift_factor -= 3;
         } else {
             shift_factor *= -1;
-            let h_in: <T as Double>::Key = h << ((shift_factor as usize) << 1);
-            let h_in: <T as Double>::Key = h_in & sixty_three;
+            let h_in: <T as Unsigned>::Key = h << ((shift_factor as usize) << 1);
+            let h_in: <T as Unsigned>::Key = h_in & sixty_three;
             let h_in: u8 = h_in.try_into().unwrap();
             let r: u8 = LUT_3_REV[state as usize | h_in as usize];
             let xxx: T = r.into();
