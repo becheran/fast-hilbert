@@ -39,64 +39,74 @@
 
 #![cfg_attr(not(test), no_std)]
 
-use core::ops::{ShrAssign, ShlAssign, BitOrAssign};
-use core::convert::{TryInto, From};
-use num_traits::{Zero, PrimInt};
+extern crate num_traits;
+
+use core::convert::{From, TryInto};
+use core::ops::{BitOrAssign, ShlAssign, ShrAssign};
+use num_traits::{PrimInt, Zero};
 
 pub trait Double: num_traits::PrimInt + From<u8> + TryInto<usize> + BitOrAssign
-    where Self::Key: PrimInt + ShrAssign + From<u8> + Zero + ShlAssign + BitOrAssign,
+where
+    Self::Key: PrimInt + ShrAssign + From<u8> + Zero + ShlAssign + BitOrAssign,
 {
     type Key;
     const SEVEN: Self;
     const SIXTY_THREE: Self::Key;
 }
 
-impl Double for u64 {type Key = u128; const SEVEN: Self = 7; const SIXTY_THREE: Self::Key = 63;}
-impl Double for u16 {type Key =  u32; const SEVEN: Self = 7; const SIXTY_THREE: Self::Key = 63;}
-impl Double for  u8 {type Key =  u16; const SEVEN: Self = 7; const SIXTY_THREE: Self::Key = 63;}
-impl Double for u32 {type Key =  u64; const SEVEN: Self = 7; const SIXTY_THREE: Self::Key = 63;}
+impl Double for u64 {
+    type Key = u128;
+    const SEVEN: Self = 7;
+    const SIXTY_THREE: Self::Key = 63;
+}
+impl Double for u16 {
+    type Key = u32;
+    const SEVEN: Self = 7;
+    const SIXTY_THREE: Self::Key = 63;
+}
+impl Double for u8 {
+    type Key = u16;
+    const SEVEN: Self = 7;
+    const SIXTY_THREE: Self::Key = 63;
+}
+impl Double for u32 {
+    type Key = u64;
+    const SEVEN: Self = 7;
+    const SIXTY_THREE: Self::Key = 63;
+}
 
 /// Convert form 2D to 1D hilbert space
 /// # Arguments
-/// * `x` - Coordinate in 2D space. Must be < 2^`order`
-/// * `y` - Coordinate in 2D space.  Must be < 2^`order`
-/// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
-pub fn xy2h<T: Double>(x: T, y: T) -> <T as Double>::Key 
-where <T as TryInto<usize>>::Error: core::fmt::Debug
-
+/// * `x` - Coordinate in 2D space
+/// * `y` - Coordinate in 2D space
+pub fn xy2h<T: Double>(x: T, y: T) -> <T as Double>::Key
+where
+    <T as TryInto<usize>>::Error: core::fmt::Debug,
 {
-
-
-
-
-
     // Mapping from State and coordinates to hilbert states
     // SXXXYYY => SHHH
     //   8 bit => 8 bit
     const LUT_3: [u8; 256] = [
-        64, 1, 206, 79, 16, 211, 84, 21, 131, 2, 205, 140, 81, 82, 151, 22, 4, 199, 8, 203, 158, 157,
-        88, 25, 69, 70, 73, 74, 31, 220, 155, 26, 186, 185, 182, 181, 32, 227, 100, 37, 59, 248, 55,
-        244, 97, 98, 167, 38, 124, 61, 242, 115, 174, 173, 104, 41, 191, 62, 241, 176, 47, 236, 171,
-        42, 0, 195, 68, 5, 250, 123, 60, 255, 65, 66, 135, 6, 249, 184, 125, 126, 142, 141, 72, 9, 246,
-        119, 178, 177, 15, 204, 139, 10, 245, 180, 51, 240, 80, 17, 222, 95, 96, 33, 238, 111, 147, 18,
-        221, 156, 163, 34, 237, 172, 20, 215, 24, 219, 36, 231, 40, 235, 85, 86, 89, 90, 101, 102, 105,
-        106, 170, 169, 166, 165, 154, 153, 150, 149, 43, 232, 39, 228, 27, 216, 23, 212, 108, 45, 226,
-        99, 92, 29, 210, 83, 175, 46, 225, 160, 159, 30, 209, 144, 48, 243, 116, 53, 202, 75, 12, 207,
-        113, 114, 183, 54, 201, 136, 77, 78, 190, 189, 120, 57, 198, 71, 130, 129, 63, 252, 187, 58,
-        197, 132, 3, 192, 234, 107, 44, 239, 112, 49, 254, 127, 233, 168, 109, 110, 179, 50, 253, 188,
-        230, 103, 162, 161, 52, 247, 56, 251, 229, 164, 35, 224, 117, 118, 121, 122, 218, 91, 28, 223,
-        138, 137, 134, 133, 217, 152, 93, 94, 11, 200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213,
-        148, 19, 208, 143, 14, 193, 128,
+        64, 1, 206, 79, 16, 211, 84, 21, 131, 2, 205, 140, 81, 82, 151, 22, 4, 199, 8, 203, 158,
+        157, 88, 25, 69, 70, 73, 74, 31, 220, 155, 26, 186, 185, 182, 181, 32, 227, 100, 37, 59,
+        248, 55, 244, 97, 98, 167, 38, 124, 61, 242, 115, 174, 173, 104, 41, 191, 62, 241, 176, 47,
+        236, 171, 42, 0, 195, 68, 5, 250, 123, 60, 255, 65, 66, 135, 6, 249, 184, 125, 126, 142,
+        141, 72, 9, 246, 119, 178, 177, 15, 204, 139, 10, 245, 180, 51, 240, 80, 17, 222, 95, 96,
+        33, 238, 111, 147, 18, 221, 156, 163, 34, 237, 172, 20, 215, 24, 219, 36, 231, 40, 235, 85,
+        86, 89, 90, 101, 102, 105, 106, 170, 169, 166, 165, 154, 153, 150, 149, 43, 232, 39, 228,
+        27, 216, 23, 212, 108, 45, 226, 99, 92, 29, 210, 83, 175, 46, 225, 160, 159, 30, 209, 144,
+        48, 243, 116, 53, 202, 75, 12, 207, 113, 114, 183, 54, 201, 136, 77, 78, 190, 189, 120, 57,
+        198, 71, 130, 129, 63, 252, 187, 58, 197, 132, 3, 192, 234, 107, 44, 239, 112, 49, 254,
+        127, 233, 168, 109, 110, 179, 50, 253, 188, 230, 103, 162, 161, 52, 247, 56, 251, 229, 164,
+        35, 224, 117, 118, 121, 122, 218, 91, 28, 223, 138, 137, 134, 133, 217, 152, 93, 94, 11,
+        200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
 
-
-
-
     let coor_bits = (core::mem::size_of::<T>() * 8) as u32;
-    let useless_bits = (x|y).leading_zeros() & !1;
+    let useless_bits = (x | y).leading_zeros() & !1;
     let useful_bits = coor_bits - useless_bits;
     let order = useful_bits;
-    
+
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
 
@@ -133,45 +143,37 @@ where <T as TryInto<usize>>::Error: core::fmt::Debug
 
 /// Convert form 1D hilbert space to 2D coordinates
 /// # Arguments
-/// * `h` - Coordinate in 1D hilbert space. Must be < (2^`order`) * 2.
-/// * `order` - Hilbert space order. Max order is 32, since 32 bit coordinates are used.
+/// * `h` - Coordinate in 1D hilbert space
 pub fn h2xy<T: Double>(h: <T as Double>::Key) -> (T, T)
-where <T as TryInto<usize>>::Error: core::fmt::Debug,
-<<T as Double>::Key as TryInto<u8>>::Error: core::fmt::Debug,
-<T as Double>::Key: TryInto<u8>
+where
+    <T as TryInto<usize>>::Error: core::fmt::Debug,
+    <<T as Double>::Key as TryInto<u8>>::Error: core::fmt::Debug,
+    <T as Double>::Key: TryInto<u8>,
 {
-
-
-
-
-
     // Mapping from hilbert states to 2D coordinates
     // SHHH => SXXXYYY
     //   8 bit => 8 bit
     const LUT_3_REV: [u8; 256] = [
-        64, 1, 9, 136, 16, 88, 89, 209, 18, 90, 91, 211, 139, 202, 194, 67, 4, 76, 77, 197, 70, 7, 15,
-        142, 86, 23, 31, 158, 221, 149, 148, 28, 36, 108, 109, 229, 102, 39, 47, 174, 118, 55, 63, 190,
-        253, 181, 180, 60, 187, 250, 242, 115, 235, 163, 162, 42, 233, 161, 160, 40, 112, 49, 57, 184,
-        0, 72, 73, 193, 66, 3, 11, 138, 82, 19, 27, 154, 217, 145, 144, 24, 96, 33, 41, 168, 48, 120,
-        121, 241, 50, 122, 123, 243, 171, 234, 226, 99, 100, 37, 45, 172, 52, 124, 125, 245, 54, 126,
-        127, 247, 175, 238, 230, 103, 223, 151, 150, 30, 157, 220, 212, 85, 141, 204, 196, 69, 6, 78,
-        79, 199, 255, 183, 182, 62, 189, 252, 244, 117, 173, 236, 228, 101, 38, 110, 111, 231, 159,
-        222, 214, 87, 207, 135, 134, 14, 205, 133, 132, 12, 84, 21, 29, 156, 155, 218, 210, 83, 203,
-        131, 130, 10, 201, 129, 128, 8, 80, 17, 25, 152, 32, 104, 105, 225, 98, 35, 43, 170, 114, 51,
-        59, 186, 249, 177, 176, 56, 191, 254, 246, 119, 239, 167, 166, 46, 237, 165, 164, 44, 116, 53,
-        61, 188, 251, 179, 178, 58, 185, 248, 240, 113, 169, 232, 224, 97, 34, 106, 107, 227, 219, 147,
-        146, 26, 153, 216, 208, 81, 137, 200, 192, 65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213,
-        22, 94, 95, 215, 143, 206, 198, 71,
+        64, 1, 9, 136, 16, 88, 89, 209, 18, 90, 91, 211, 139, 202, 194, 67, 4, 76, 77, 197, 70, 7,
+        15, 142, 86, 23, 31, 158, 221, 149, 148, 28, 36, 108, 109, 229, 102, 39, 47, 174, 118, 55,
+        63, 190, 253, 181, 180, 60, 187, 250, 242, 115, 235, 163, 162, 42, 233, 161, 160, 40, 112,
+        49, 57, 184, 0, 72, 73, 193, 66, 3, 11, 138, 82, 19, 27, 154, 217, 145, 144, 24, 96, 33,
+        41, 168, 48, 120, 121, 241, 50, 122, 123, 243, 171, 234, 226, 99, 100, 37, 45, 172, 52,
+        124, 125, 245, 54, 126, 127, 247, 175, 238, 230, 103, 223, 151, 150, 30, 157, 220, 212, 85,
+        141, 204, 196, 69, 6, 78, 79, 199, 255, 183, 182, 62, 189, 252, 244, 117, 173, 236, 228,
+        101, 38, 110, 111, 231, 159, 222, 214, 87, 207, 135, 134, 14, 205, 133, 132, 12, 84, 21,
+        29, 156, 155, 218, 210, 83, 203, 131, 130, 10, 201, 129, 128, 8, 80, 17, 25, 152, 32, 104,
+        105, 225, 98, 35, 43, 170, 114, 51, 59, 186, 249, 177, 176, 56, 191, 254, 246, 119, 239,
+        167, 166, 46, 237, 165, 164, 44, 116, 53, 61, 188, 251, 179, 178, 58, 185, 248, 240, 113,
+        169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
+        65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
 
-
-
-
     let coor_bits = (core::mem::size_of::<T>() * 8) as u32;
-    let useless_bits = (h.leading_zeros()>>1) & !1;
+    let useless_bits = (h.leading_zeros() >> 1) & !1;
     let useful_bits = coor_bits - useless_bits;
     let order = useful_bits;
-    
+
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
 
@@ -185,8 +187,6 @@ where <T as TryInto<usize>>::Error: core::fmt::Debug,
             let h_in: <T as Double>::Key = h >> ((shift_factor as usize) << 1);
             let h_in: <T as Double>::Key = h_in & sixty_three;
             let h_in: u8 = h_in.try_into().unwrap();
-            //let index: usize = (state as usize) | h_in.try_into().unwrap();
-            //let index: usize = index.try_into().unwrap();
             let r: u8 = LUT_3_REV[state as usize | h_in as usize];
             state = r & 0b11000000;
             let xxx: T = r.into();
@@ -345,7 +345,7 @@ mod tests {
     #[test]
     fn h2xy_test() {
         for &bits in &[1, 2, 3, 5, 8, 13, 16] {
-            let bits = (bits + 1) &!1;
+            let bits = (bits + 1) & !1;
             let numbers = 2usize.pow(bits);
             for d in (0..(numbers * numbers)).step_by(numbers as usize) {
                 let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
@@ -354,25 +354,20 @@ mod tests {
         }
     }
 
-    // Only for rendering images
-    //#[test]
-    fn _write_image() {
-        let bits: usize = 8;
-        let numbers: usize = 2usize.pow(bits as u32);
+    fn draw_hilber_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
+        let size: usize = 256;
+        let border = 32;
 
-        let mut points: Vec<(usize, usize)> = vec![(0, 0); numbers * numbers];
+        let mut imgbuf = image::ImageBuffer::new(size as u32, size as u32);
 
-        let base = numbers / (numbers + 1);
-        for x in 0..numbers {
-            for y in 0..numbers {
-                let px = (x + 1) * base;
-                let py = (y + 1) * base;
-                let p = xy2h(x as u32, y as u32);
-                points[p as usize] = (px, py)
-            }
+        let mut points: Vec<(u32, u32)> = vec![(0, 0); 2usize.pow(iteration * 2)];
+        for i in 0..2usize.pow(iteration * 2) {
+            let (mut x, mut y) = h2xy(i as u64);
+            let step = (size as u32 - border * 2) / (2usize.pow(iteration) as u32 - 1);
+            x = x * step + border;
+            y = y * step + border;
+            points[i] = (x, y)
         }
-
-        let mut imgbuf = image::ImageBuffer::new(numbers as u32, numbers as u32);
 
         let mut prev = (0, 0);
         let white = image::Rgb([255 as u8, 255, 255]);
@@ -406,6 +401,15 @@ mod tests {
                 continue;
             }
         }
-        imgbuf.save("test.png").unwrap();
+        return imgbuf;
+    }
+
+    // Only for rendering images
+    #[test]
+    fn write_image() {
+        for i in 1..4 {
+            let imgbuf = draw_hilber_curve(i);
+            imgbuf.save(format!("doc/h{}.png", i)).unwrap();
+        }
     }
 }
