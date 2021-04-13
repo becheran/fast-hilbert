@@ -6,7 +6,7 @@
 [![usage](https://badgen.net/crates/d/fast_hilbert)](https://crates.io/crates/fast_hilbert)
 [![license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and a more efficient "orientation-stable encoding". The curve is slightly than the original hilbert curve. Every odd iteration is oriented by 90 degrees compared to the original hilbert implementation.
+Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and fast "orientation-stable encoding". The curve is slightly different compared to the original hilbert curve. Every odd iteration is oriented by 90 degrees:
 
 ![h1](./doc/h1.png)
 ![h2](./doc/h2.png)
