@@ -60,6 +60,11 @@ impl Unsigned for u64 {
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
+impl Unsigned for u32 {
+    type Key = u64;
+    const SEVEN: Self = 7;
+    const SIXTY_THREE: Self::Key = 63;
+}
 impl Unsigned for u16 {
     type Key = u32;
     const SEVEN: Self = 7;
@@ -70,11 +75,6 @@ impl Unsigned for u8 {
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
-impl Unsigned for u32 {
-    type Key = u64;
-    const SEVEN: Self = 7;
-    const SIXTY_THREE: Self::Key = 63;
-}
 
 /// Convert form 2D to 1D hilbert space.
 /// Input type `T` must have half the capacity of the result type. For example (u32, u32) => u64.
@@ -82,13 +82,14 @@ impl Unsigned for u32 {
 /// # Arguments
 /// * `x` - Coordinate in 2D space
 /// * `y` - Coordinate in 2D space
+/// * `order` - The hilbert curve order
 ///
 /// # Examples
 ///```
-/// let hilbert = fast_hilbert::xy2h(1u64, 0);
-/// assert_eq!(hilbert, 01u128);
+/// let hilbert = fast_hilbert::xy2h(1u64, 0, 1);
+/// assert_eq!(hilbert, 0b11u128);
 ///```
-pub fn xy2h<T: Unsigned>(x: T, y: T) -> <T as Unsigned>::Key
+pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
 where
     <T as TryInto<usize>>::Error: core::fmt::Debug,
 {
@@ -113,8 +114,7 @@ where
 
     let coor_bits = (core::mem::size_of::<T>() * 8) as u32;
     let useless_bits = (x | y).leading_zeros() & !1;
-    let useful_bits = coor_bits - useless_bits;
-    let order = useful_bits;
+    let order = (coor_bits - useless_bits) as u8 + (order & 1);
 
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
@@ -155,15 +155,16 @@ where
 /// Input type `T` must have double the capacity of the result types. For example u64 => (u32, u32).
 ///
 /// # Arguments
-/// * `h` - Coordinate in 1D hilbert space
+/// * `h`     - Coordinate in 1D hilbert space
+/// * `order` - Hilbert curve order
 ///
 /// # Examples
 ///```
-/// let (x, y) = fast_hilbert::h2xy::<u64>(01u128);
+/// let (x, y) = fast_hilbert::h2xy::<u64>(0b11u128, 1);
 /// assert_eq!(x, 1u64);
 /// assert_eq!(y, 0u64);
 ///```
-pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key) -> (T, T)
+pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
 where
     <T as TryInto<usize>>::Error: core::fmt::Debug,
     <<T as Unsigned>::Key as TryInto<u8>>::Error: core::fmt::Debug,
@@ -187,11 +188,9 @@ where
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
-
-    let coor_bits = (core::mem::size_of::<T>() * 8) as u32;
-    let useless_bits = (h.leading_zeros() >> 1) & !1;
-    let useful_bits = coor_bits - useless_bits;
-    let order = useful_bits;
+    let coor_bits = (core::mem::size_of::<T>() * 8) as u8;
+    let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
+    let order = coor_bits - useless_bits + (order & 1);
 
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
@@ -307,45 +306,57 @@ mod tests {
 
     #[test]
     fn hilbert_and_rev() {
-        let order = 16;
-        for h in 0..(2usize.pow(order) - 1) {
-            let (x, y): (u32, u32) = h2xy(h as u64);
-            let res_h = xy2h(x, y);
+        let order = 4;
+        let max =  2usize.pow(order * 2);
+        for h in 0..max {
+            let (x, y): (u32, u32) = h2xy(h as u64, order as u8);
+            let res_h = xy2h(x, y, order as u8);
             assert_eq!(h as u64, res_h);
+        }
+    }
+
+    #[test]
+    fn hilbert_and_rev_full_order() {
+        let order = 8;
+        let max =  2usize.pow(order * 2);
+        for h in 0..max {
+            let (x, y): (u8, u8) = h2xy(h as u16, order as u8);
+            let res_h = xy2h(x, y, order as u8);
+            assert_eq!(h as u16, res_h);
         }
     }
 
     #[test]
     fn h2xy_one_bit() {
         let h2xy = h2xy::<u8>;
-        let (x0, y0) = h2xy(0b00);
-        let (x1, y1) = h2xy(0b01);
-        let (x2, y2) = h2xy(0b11);
-        let (x3, y3) = h2xy(0b10);
+        let (x0, y0) = h2xy(0, 1);
+        let (x1, y1) = h2xy(1, 1);
+        let (x2, y2) = h2xy(2, 1);
+        let (x3, y3) = h2xy(3, 1);
         assert_eq!((x0, y0), (0, 0));
-        assert_eq!((x3, y3), (1, 1));
-        assert_eq!((x2, y2), (0, 1));
-        assert_eq!((x1, y1), (1, 0));
+        assert_eq!((x1, y1), (0, 1));
+        assert_eq!((x2, y2), (1, 1));
+        assert_eq!((x3, y3), (1, 0));
     }
 
     #[test]
     fn xy2h_one_bit() {
-        let d0 = xy2h(0u64, 0);
-        let d1 = xy2h(0u64, 1);
-        let d2 = xy2h(1u64, 0);
-        let d3 = xy2h(1u64, 1);
-        assert_eq!(d0, 0b00);
-        assert_eq!(d1, 0b11);
-        assert_eq!(d2, 0b01);
-        assert_eq!(d3, 0b10);
+        let d0 = xy2h(0u64, 0, 1);
+        let d1 = xy2h(0u64, 1, 1);
+        let d2 = xy2h(1u64, 0, 1);
+        let d3 = xy2h(1u64, 1, 1);
+        assert_eq!(d0, 0);
+        assert_eq!(d1, 1);
+        assert_eq!(d2, 3);
+        assert_eq!(d3, 2);
     }
 
     #[test]
     fn h2xy_two_bits() {
         let h2xy = h2xy::<u32>;
         for h in 0..8 {
-            let (rx, ry) = h2xy(h as u64);
-            let h_cmp = xy2h(rx as u32, ry as u32);
+            let (rx, ry) = h2xy(h as u64, 2);
+            let h_cmp = xy2h(rx as u32, ry as u32, 2);
             assert_eq!(h, h_cmp as usize);
         }
     }
@@ -355,7 +366,7 @@ mod tests {
         for x in 0..4 {
             for y in 0..4 {
                 let d = hilbert_curve::convert_2d_to_1d(x, y, 4);
-                let df = xy2h(x as u32, y as u32);
+                let df = xy2h(x as u32, y as u32, 2);
                 assert_eq!(d as u64, df);
             }
         }
@@ -368,28 +379,29 @@ mod tests {
             let numbers = 2usize.pow(bits);
             for d in (0..(numbers * numbers)).step_by(numbers as usize) {
                 let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
-                assert_eq!(xy2h(x as u32, y as u32), d as u64);
+                assert_eq!(xy2h(x as u32, y as u32, bits as u8), d as u64);
             }
         }
     }
 
     fn draw_hilbert_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let size: usize = 256;
-        let border = 32;
+        let border = 32 / iteration;
 
         let mut imgbuf = image::ImageBuffer::new(size as u32, size as u32);
 
         let mut points: Vec<(u32, u32)> = vec![(0, 0); 2usize.pow(iteration * 2)];
         for i in 0..2usize.pow(iteration * 2) {
-            let (mut x, mut y) = h2xy(i as u64);
-            let step = (size as u32 - border * 2) / (2usize.pow(iteration) as u32 - 1);
-            x = x * step + border;
-            y = y * step + border;
+            let (mut x, mut y) = h2xy(i as u64, iteration as u8);
+            let step = (size as u32 - border * 2) as f64 / (2usize.pow(iteration) as f64 - 1.0);
+            x = (x as f64 * step) as u32 + border;
+            y = (y as f64 * step) as u32 + border;
             points[i] = (x, y)
         }
 
         let mut prev = (0, 0);
         let white = image::Rgb([255_u8, 255, 255]);
+
         for (x, y) in &points {
             if prev == (0, 0) {
                 prev = (*x, *y);
@@ -426,7 +438,7 @@ mod tests {
     // Only for rendering images
     #[test]
     fn write_image() {
-        for i in 1..4 {
+        for i in 1..7 {
             let imgbuf = draw_hilbert_curve(i);
             imgbuf.save(format!("doc/h{}.png", i)).unwrap();
         }

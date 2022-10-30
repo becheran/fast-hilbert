@@ -44,7 +44,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             for x in 0..n {
                 for y in 0..n {
-                    fast_hilbert::xy2h(black_box(x as u32), black_box(y as u32));
+                    fast_hilbert::xy2h(black_box(x as u32), black_box(y as u32),black_box(bits as u8));
                 }
             }
         })
