@@ -133,7 +133,7 @@ where
             let r: <T as Unsigned>::Key = r.into();
             let mut hhh: <T as Unsigned>::Key = r & sixty_three;
             hhh <<= ((shift_factor as u8) << 1).into();
-            result = result | hhh;
+            result |= hhh;
             shift_factor -= 3;
         } else {
             shift_factor *= -1;
@@ -144,7 +144,7 @@ where
             let r: <T as Unsigned>::Key = r.into();
             let mut hhh: <T as Unsigned>::Key = r & sixty_three;
             hhh >>= ((shift_factor as u8) << 1).into();
-            result = result | hhh;
+            result |= hhh;
             return result;
         }
     }
@@ -373,7 +373,7 @@ mod tests {
         }
     }
 
-    fn draw_hilber_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
+    fn draw_hilbert_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let size: usize = 256;
         let border = 32;
 
@@ -389,7 +389,7 @@ mod tests {
         }
 
         let mut prev = (0, 0);
-        let white = image::Rgb([255 as u8, 255, 255]);
+        let white = image::Rgb([255_u8, 255, 255]);
         for (x, y) in &points {
             if prev == (0, 0) {
                 prev = (*x, *y);
@@ -420,14 +420,14 @@ mod tests {
                 continue;
             }
         }
-        return imgbuf;
+        imgbuf
     }
 
     // Only for rendering images
     #[test]
     fn write_image() {
         for i in 1..4 {
-            let imgbuf = draw_hilber_curve(i);
+            let imgbuf = draw_hilbert_curve(i);
             imgbuf.save(format!("doc/h{}.png", i)).unwrap();
         }
     }
