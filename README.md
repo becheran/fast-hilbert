@@ -6,7 +6,7 @@
 [![usage](https://badgen.net/crates/d/fast_hilbert)](https://crates.io/crates/fast_hilbert)
 [![license](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and fast "orientation-stable encoding". The curve is slightly different compared to the original hilbert curve. Every odd iteration is oriented by 90 degrees:
+Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and only considering the lowest order for a given input.
 
 ![h1](./doc/h1.png)
 ![h2](./doc/h2.png)
@@ -15,11 +15,11 @@ Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and fa
 ![h5](./doc/h5.png)
 ![h6](./doc/h6.png)
 
-* *Orientation-stable encoding* (all credits to [DoubleHyphen](https://github.com/DoubleHyphen) see [this PR](https://github.com/becheran/fast-hilbert/pull/2) for more information)
 * Convert from discrete 2D space to 1D hilbert space and reverse
-* No `order` or `iteration` input required
+* Generalized for different unsigned integer input types (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#3](https://github.com/becheran/fast-hilbert/pull/3))
+* Speedup via lowest order computation (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#2](https://github.com/becheran/fast-hilbert/pull/2))
 * Very fast using an efficient 512 Byte *LUT*
-* Only one additional [dependency](https://crates.io/crates/num-traits).
+* Only one additional [dependency](https://crates.io/crates/num-traits)
 
 Benchmarking the conversion from full 256x256 discrete 2D space to the 1D hilbert space, shows that *fast_hilbert* is about **12 times faster** compared to the fastest 2D hilbert transformation libs written in rust. Benchmarked on a *Intel i5-6400 CPU @ 2.70 GHz, 4 Cores* with *8 GB RAM*:
 
