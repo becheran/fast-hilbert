@@ -114,14 +114,14 @@ where
 
     let coor_bits = (core::mem::size_of::<T>() * 8) as u32;
     let useless_bits = (x | y).leading_zeros() & !1;
-    let order = (coor_bits - useless_bits) as u8 + (order & 1);
+    let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
 
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
 
     let mut result: <T as Unsigned>::Key = <T as Unsigned>::Key::zero();
     let mut state = 0u8;
-    let mut shift_factor: i8 = order as i8 - 3;
+    let mut shift_factor: i8 = lowest_order as i8 - 3;
     loop {
         if shift_factor > 0 {
             let x_in = ((x >> shift_factor.try_into().unwrap()) & seven) << 3;
@@ -190,7 +190,7 @@ where
     ];
     let coor_bits = (core::mem::size_of::<T>() * 8) as u8;
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
-    let order = coor_bits - useless_bits + (order & 1);
+    let lowest_order = coor_bits - useless_bits + (order & 1);
 
     let seven = T::SEVEN;
     let sixty_three = T::SIXTY_THREE;
@@ -199,7 +199,7 @@ where
     let mut y_result: T = x_result;
 
     let mut state = 0u8;
-    let mut shift_factor: i8 = order as i8 - 3;
+    let mut shift_factor: i8 = lowest_order as i8 - 3;
     loop {
         if shift_factor > 0 {
             let h_in: <T as Unsigned>::Key = h >> ((shift_factor as usize) << 1);
