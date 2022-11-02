@@ -57,15 +57,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     let xy_low: (u32, u32) = (1, 2);
     let xy_high: (u32, u32) = (u32::MAX - 1, u32::MAX - 2);
     let order: u8 = 32;
-    let n : usize = 2usize.pow(order as u32);
+    let n: usize = 2usize.pow(order as u32);
     c.bench_function("fast_hilbert_low", |b| {
         b.iter(|| {
-            fast_hilbert::xy2h(xy_low.0, xy_low.1, order);
+            fast_hilbert::xy2h(black_box(xy_low.0), black_box(xy_low.1), black_box(order));
         })
     });
     c.bench_function("fast_hilbert_high", |b| {
         b.iter(|| {
-            fast_hilbert::xy2h(xy_high.0, xy_high.1, order);
+            fast_hilbert::xy2h(black_box(xy_high.0), black_box(xy_high.1), black_box(order));
         })
     });
     c.bench_function("hilbert_curve_low", |b| {

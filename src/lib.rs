@@ -42,11 +42,17 @@
 extern crate num_traits;
 
 use core::convert::{From, TryInto};
-use core::ops::{BitOrAssign, ShlAssign, ShrAssign};
+use core::ops::{BitOrAssign, Shl, ShlAssign, Shr, ShrAssign};
 use num_traits::{PrimInt, Zero};
 
 /// Unsigned integer input type which has a double value type as key
-pub trait Unsigned: num_traits::PrimInt + From<u8> + TryInto<usize> + BitOrAssign
+pub trait Unsigned:
+    num_traits::PrimInt
+    + From<u8>
+    + TryInto<usize>
+    + BitOrAssign
+    + Shl<i8, Output = Self>
+    + Shr<i8, Output = Self>
 where
     Self::Key: PrimInt + ShrAssign + From<u8> + Zero + ShlAssign + BitOrAssign,
 {
@@ -112,7 +118,7 @@ where
         200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
 
-    let coor_bits = (core::mem::size_of::<T>() * 8) as u32;
+    let coor_bits = (core::mem::size_of::<T>() << 3) as u32;
     let useless_bits = (x | y).leading_zeros() & !1;
     let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
 
@@ -121,33 +127,38 @@ where
 
     let mut result: <T as Unsigned>::Key = <T as Unsigned>::Key::zero();
     let mut state = 0u8;
-    let mut shift_factor: i8 = lowest_order as i8 - 3;
-    loop {
-        if shift_factor > 0 {
-            let x_in = ((x >> shift_factor.try_into().unwrap()) & seven) << 3;
-            let y_in = (y >> shift_factor.try_into().unwrap()) & seven;
-            let index = x_in | y_in | state.into();
-            let index: usize = index.try_into().unwrap();
-            let r: u8 = LUT_3[index];
-            state = r & 0b11000000;
-            let r: <T as Unsigned>::Key = r.into();
-            let mut hhh: <T as Unsigned>::Key = r & sixty_three;
-            hhh <<= ((shift_factor as u8) << 1).into();
-            result |= hhh;
-            shift_factor -= 3;
-        } else {
-            shift_factor *= -1;
-            let x_in = ((x << shift_factor.try_into().unwrap()) & seven) << 3;
-            let y_in = (y << shift_factor.try_into().unwrap()) & seven;
-            let index = x_in | y_in | state.into();
-            let r: u8 = LUT_3[index.try_into().unwrap()];
-            let r: <T as Unsigned>::Key = r.into();
-            let mut hhh: <T as Unsigned>::Key = r & sixty_three;
-            hhh >>= ((shift_factor as u8) << 1).into();
-            result |= hhh;
-            return result;
-        }
+    let mut shift_factor = lowest_order as i8 - 3;
+
+    while shift_factor > 0 {
+        let x_in = ((x >> shift_factor) & seven) << 3i8;
+        let y_in = (y >> shift_factor) & seven;
+
+        let index: T = x_in | y_in | state.into();
+        let index: usize = index.try_into().unwrap();
+
+        let r = LUT_3[index];
+        state = r & 0b11000000;
+        let r: <T as Unsigned>::Key = r.into();
+
+        let mut hhh: <T as Unsigned>::Key = r & sixty_three;
+        hhh <<= ((shift_factor as u8) << 1).into();
+        result |= hhh;
+        shift_factor -= 3;
     }
+
+    shift_factor *= -1;
+    let x_in = ((x << shift_factor) & seven) << 3i8;
+    let y_in = (y << shift_factor) & seven;
+
+    let index: T = x_in | y_in | state.into();
+    let index = index.try_into().unwrap();
+    let r: u8 = LUT_3[index];
+    let r: <T as Unsigned>::Key = r.into();
+
+    let mut hhh: <T as Unsigned>::Key = r & sixty_three;
+    hhh >>= ((shift_factor as u8) << 1).into();
+
+    result | hhh
 }
 
 /// Convert form 1D hilbert space to 2D coordinates
@@ -188,7 +199,7 @@ where
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
-    let coor_bits = (core::mem::size_of::<T>() * 8) as u8;
+    let coor_bits = (core::mem::size_of::<T>() << 3) as u8;
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
     let lowest_order = coor_bits - useless_bits + (order & 1);
 
@@ -199,38 +210,46 @@ where
     let mut y_result: T = x_result;
 
     let mut state = 0u8;
-    let mut shift_factor: i8 = lowest_order as i8 - 3;
-    loop {
-        if shift_factor > 0 {
-            let h_in: <T as Unsigned>::Key = h >> ((shift_factor as usize) << 1);
-            let h_in: <T as Unsigned>::Key = h_in & sixty_three;
-            let h_in: u8 = h_in.try_into().unwrap();
-            let r: u8 = LUT_3_REV[state as usize | h_in as usize];
-            state = r & 0b11000000;
-            let xxx: T = r.into();
-            let xxx: T = xxx >> 3;
-            let xxx: T = xxx & seven;
-            let yyy: T = r.into();
-            let yyy: T = yyy & seven;
-            x_result |= xxx << shift_factor.try_into().unwrap();
-            y_result |= yyy << shift_factor.try_into().unwrap();
-            shift_factor -= 3;
-        } else {
-            shift_factor *= -1;
-            let h_in: <T as Unsigned>::Key = h << ((shift_factor as usize) << 1);
-            let h_in: <T as Unsigned>::Key = h_in & sixty_three;
-            let h_in: u8 = h_in.try_into().unwrap();
-            let r: u8 = LUT_3_REV[state as usize | h_in as usize];
-            let xxx: T = r.into();
-            let xxx: T = xxx >> 3;
-            let xxx: T = xxx & seven;
-            let yyy: T = r.into();
-            let yyy: T = yyy & seven;
-            x_result = xxx >> shift_factor.try_into().unwrap() | x_result;
-            y_result = yyy >> shift_factor.try_into().unwrap() | y_result;
-            return (x_result, y_result);
-        }
+    let mut shift_factor = lowest_order as i8 - 3;
+
+    while shift_factor > 0 {
+        let h_in: <T as Unsigned>::Key = h >> ((shift_factor as usize) << 1);
+        let h_in: <T as Unsigned>::Key = h_in & sixty_three;
+        let h_in: u8 = h_in.try_into().unwrap();
+
+        let r: u8 = LUT_3_REV[state as usize | h_in as usize];
+        state = r & 0b11000000;
+
+        let xxx: T = r.into();
+        let xxx: T = xxx >> 3i8;
+        let xxx: T = xxx & seven;
+
+        let yyy: T = r.into();
+        let yyy: T = yyy & seven;
+
+        x_result |= xxx << shift_factor;
+        y_result |= yyy << shift_factor;
+        shift_factor -= 3;
     }
+
+    shift_factor *= -1;
+    let h_in: <T as Unsigned>::Key = h << ((shift_factor as usize) << 1);
+    let h_in: <T as Unsigned>::Key = h_in & sixty_three;
+    let h_in: u8 = h_in.try_into().unwrap();
+
+    let r: u8 = LUT_3_REV[state as usize | h_in as usize];
+
+    let xxx: T = r.into();
+    let xxx: T = xxx >> 3i8;
+    let xxx: T = xxx & seven;
+
+    let yyy: T = r.into();
+    let yyy: T = yyy & seven;
+
+    x_result = xxx >> shift_factor | x_result;
+    y_result = yyy >> shift_factor | y_result;
+
+    (x_result, y_result)
 }
 
 #[cfg(test)]
@@ -307,7 +326,7 @@ mod tests {
     #[test]
     fn hilbert_and_rev() {
         let order = 4;
-        let max =  2usize.pow(order * 2);
+        let max = 2usize.pow(order * 2);
         for h in 0..max {
             let (x, y): (u32, u32) = h2xy(h as u64, order as u8);
             let res_h = xy2h(x, y, order as u8);
@@ -318,7 +337,7 @@ mod tests {
     #[test]
     fn hilbert_and_rev_full_order() {
         let order = 8;
-        let max =  2usize.pow(order * 2);
+        let max = 2usize.pow(order * 2);
         for h in 0..max {
             let (x, y): (u8, u8) = h2xy(h as u16, order as u8);
             let res_h = xy2h(x, y, order as u8);
