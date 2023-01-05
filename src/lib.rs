@@ -39,22 +39,51 @@
 
 #![cfg_attr(not(test), no_std)]
 
-extern crate num_traits;
-
 use core::convert::{From, TryInto};
-use core::ops::{BitOrAssign, Shl, ShlAssign, Shr, ShrAssign};
-use num_traits::{PrimInt, Zero};
+use core::ops::{BitAnd, BitOr, BitOrAssign, Shl, ShlAssign, Shr, ShrAssign};
 
-/// Unsigned integer input type which has a double value type as key
-pub trait Unsigned:
-    num_traits::PrimInt
-    + From<u8>
+pub trait UnsignedBase:
+    From<u8>
+    + Copy
     + TryInto<usize>
     + BitOrAssign
+    + BitOr<Output = Self>
+    + BitAnd<Output = Self>
     + Shl<i8, Output = Self>
     + Shr<i8, Output = Self>
+    + Shl<usize, Output = Self>
+    + Shr<usize, Output = Self>
+    + ShrAssign
+    + ShlAssign
+    + BitOrAssign
+{
+    fn leading_zeros(self) -> u32;
+    const ZERO: Self;
+}
+
+macro_rules! base_impl {
+    ($T:ty) => {
+        impl UnsignedBase for $T {
+            const ZERO: Self = 0;
+
+            #[inline]
+            fn leading_zeros(self) -> u32 {
+                <$T>::leading_zeros(self)
+            }
+        }
+    };
+}
+
+base_impl!(u128);
+base_impl!(u64);
+base_impl!(u32);
+base_impl!(u16);
+base_impl!(u8);
+
+/// Unsigned integer input type which has a double value type as key
+pub trait Unsigned: UnsignedBase
 where
-    Self::Key: PrimInt + ShrAssign + From<u8> + Zero + ShlAssign + BitOrAssign,
+    Self::Key: UnsignedBase,
 {
     type Key; // Double the self unsigned type
     const SEVEN: Self; // Pattern needed for computation
@@ -122,16 +151,13 @@ where
     let useless_bits = (x | y).leading_zeros() & !1;
     let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
 
-    let seven = T::SEVEN;
-    let sixty_three = T::SIXTY_THREE;
-
-    let mut result: <T as Unsigned>::Key = <T as Unsigned>::Key::zero();
+    let mut result: <T as Unsigned>::Key = <T as Unsigned>::Key::ZERO;
     let mut state = 0u8;
     let mut shift_factor = lowest_order as i8 - 3;
 
     while shift_factor > 0 {
-        let x_in = ((x >> shift_factor) & seven) << 3i8;
-        let y_in = (y >> shift_factor) & seven;
+        let x_in = ((x >> shift_factor) & T::SEVEN) << 3i8;
+        let y_in = (y >> shift_factor) & T::SEVEN;
 
         let index: T = x_in | y_in | state.into();
         let index: usize = index.try_into().unwrap();
@@ -140,22 +166,22 @@ where
         state = r & 0b11000000;
         let r: <T as Unsigned>::Key = r.into();
 
-        let mut hhh: <T as Unsigned>::Key = r & sixty_three;
+        let mut hhh: <T as Unsigned>::Key = r & T::SIXTY_THREE;
         hhh <<= ((shift_factor as u8) << 1).into();
         result |= hhh;
         shift_factor -= 3;
     }
 
     shift_factor *= -1;
-    let x_in = ((x << shift_factor) & seven) << 3i8;
-    let y_in = (y << shift_factor) & seven;
+    let x_in = ((x << shift_factor) & T::SEVEN) << 3i8;
+    let y_in = (y << shift_factor) & T::SEVEN;
 
     let index: T = x_in | y_in | state.into();
     let index = index.try_into().unwrap();
     let r: u8 = LUT_3[index];
     let r: <T as Unsigned>::Key = r.into();
 
-    let mut hhh: <T as Unsigned>::Key = r & sixty_three;
+    let mut hhh: <T as Unsigned>::Key = r & T::SIXTY_THREE;
     hhh >>= ((shift_factor as u8) << 1).into();
 
     result | hhh
@@ -203,10 +229,7 @@ where
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
     let lowest_order = coor_bits - useless_bits + (order & 1);
 
-    let seven = T::SEVEN;
-    let sixty_three = T::SIXTY_THREE;
-
-    let mut x_result: T = T::zero();
+    let mut x_result: T = T::ZERO;
     let mut y_result: T = x_result;
 
     let mut state = 0u8;
@@ -214,7 +237,7 @@ where
 
     while shift_factor > 0 {
         let h_in: <T as Unsigned>::Key = h >> ((shift_factor as usize) << 1);
-        let h_in: <T as Unsigned>::Key = h_in & sixty_three;
+        let h_in: <T as Unsigned>::Key = h_in & T::SIXTY_THREE;
         let h_in: u8 = h_in.try_into().unwrap();
 
         let r: u8 = LUT_3_REV[state as usize | h_in as usize];
@@ -222,10 +245,10 @@ where
 
         let xxx: T = r.into();
         let xxx: T = xxx >> 3i8;
-        let xxx: T = xxx & seven;
+        let xxx: T = xxx & T::SEVEN;
 
         let yyy: T = r.into();
-        let yyy: T = yyy & seven;
+        let yyy: T = yyy & T::SEVEN;
 
         x_result |= xxx << shift_factor;
         y_result |= yyy << shift_factor;
@@ -234,17 +257,17 @@ where
 
     shift_factor *= -1;
     let h_in: <T as Unsigned>::Key = h << ((shift_factor as usize) << 1);
-    let h_in: <T as Unsigned>::Key = h_in & sixty_three;
+    let h_in: <T as Unsigned>::Key = h_in & T::SIXTY_THREE;
     let h_in: u8 = h_in.try_into().unwrap();
 
     let r: u8 = LUT_3_REV[state as usize | h_in as usize];
 
     let xxx: T = r.into();
     let xxx: T = xxx >> 3i8;
-    let xxx: T = xxx & seven;
+    let xxx: T = xxx & T::SEVEN;
 
     let yyy: T = r.into();
-    let yyy: T = yyy & seven;
+    let yyy: T = yyy & T::SEVEN;
 
     x_result = xxx >> shift_factor | x_result;
     y_result = yyy >> shift_factor | y_result;
