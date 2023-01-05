@@ -25,7 +25,7 @@ Benchmarking the conversion from full 256x256 discrete 2D space to the 1D hilber
 
 | Library                                                | Time        | Description       |
  ------------------------------------------------------- |------------:| ----------------- |
-| **fast_hilbert**                                       |  **0.08 ms** | Optimized for fast computation in 2D discrete space using an efficient *LUT*
+| **fast_hilbert**                                       |  **0.7 ms** | Optimized for fast computation in 2D discrete space using an efficient *LUT*
 | [hilbert_2d](https://crates.io/crates/hilbert_2d)      |  2.5 ms     | Also allows other variants such as *Moore* and *LIU* |
 | [hilbert_curve](https://crates.io/crates/hilbert_curve)|   2.0 ms    | Implements algorithm described on [Wikipedia](https://en.wikipedia.org/wiki/Hilbert_curve) |
 | [hilbert](https://crates.io/crates/hilbert)            |  32.1 ms    | Allows computation of higher dimensional Hilbert curves |
@@ -36,7 +36,7 @@ For example the computation of `xy2h(1, 2, 64)` is very fast to compute using `f
 
 | Library          | x=1, y=2, order=64  | x=u32::MAX-1, y=u32::MAX-2, order=64    |
  ----------------- | ------------------: | --------------------------------------: |
-| **fast_hilbert** |  **1.1 ns**         | **1.2 ns**                              |
+| **fast_hilbert** |  **4 ns**           | **32 ns**                               |
 | hilbert_2d       |  73 ns              | 72 ns                                   |
 | hilbert_curve    |  67 ns              | 49 ns                                   |
 | hilbert          |  690 ns             | 680 ns                                  |

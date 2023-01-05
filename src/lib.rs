@@ -33,7 +33,7 @@
 //! state is pre-computed and stored in a lookup table. The whole LUT can be packed in a 256 Byte long data-structure which fits easily in modern
 //! CPU caches and allow very fast lookups without any cache misses.
 //!
-//! Compared to other implementations, `fast_hilbert` is about **12 times faster** compared to other *rust* hilbert-curve implementations and uses only
+//! Compared to other implementations, `fast_hilbert` is at least **twice as fast** compared to other *rust* hilbert-curve implementations and uses only
 //! **512 Bytes of RAM** for the lookup tables (one for 2D->1D and another for 1D->2D).
 //!
 
