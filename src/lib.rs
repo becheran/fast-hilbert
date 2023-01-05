@@ -58,6 +58,10 @@ pub trait UnsignedBase:
     + BitOrAssign
 {
     fn leading_zeros(self) -> u32;
+    // Save since will only be used for usize <= 8 bit for LUT lookup
+    fn as_usize(self) -> usize;
+    // Save since number will never exceed 8 bits
+    fn as_u8(self) -> u8;
     const ZERO: Self;
 }
 
@@ -69,6 +73,16 @@ macro_rules! base_impl {
             #[inline]
             fn leading_zeros(self) -> u32 {
                 <$T>::leading_zeros(self)
+            }
+
+            #[inline]
+            fn as_usize(self) -> usize {
+                self as usize
+            }
+
+            #[inline]
+            fn as_u8(self) -> u8 {
+                self as u8
             }
         }
     };
@@ -125,8 +139,6 @@ impl Unsigned for u8 {
 /// assert_eq!(hilbert, 0b11u128);
 ///```
 pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
-where
-    <T as TryInto<usize>>::Error: core::fmt::Debug,
 {
     // Mapping from State and coordinates to hilbert states
     // SXXXYYY => SHHH
@@ -151,7 +163,7 @@ where
     let useless_bits = (x | y).leading_zeros() & !1;
     let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
 
-    let mut result: <T as Unsigned>::Key = <T as Unsigned>::Key::ZERO;
+    let mut result: T::Key = T::Key::ZERO;
     let mut state = 0u8;
     let mut shift_factor = lowest_order as i8 - 3;
 
@@ -159,14 +171,13 @@ where
         let x_in = ((x >> shift_factor) & T::SEVEN) << 3i8;
         let y_in = (y >> shift_factor) & T::SEVEN;
 
-        let index: T = x_in | y_in | state.into();
-        let index: usize = index.try_into().unwrap();
+        let index = (x_in | y_in | state.into()).as_usize();
 
         let r = LUT_3[index];
         state = r & 0b11000000;
-        let r: <T as Unsigned>::Key = r.into();
+        let r: T::Key = r.into();
 
-        let mut hhh: <T as Unsigned>::Key = r & T::SIXTY_THREE;
+        let mut hhh: T::Key = r & T::SIXTY_THREE;
         hhh <<= ((shift_factor as u8) << 1).into();
         result |= hhh;
         shift_factor -= 3;
@@ -176,12 +187,11 @@ where
     let x_in = ((x << shift_factor) & T::SEVEN) << 3i8;
     let y_in = (y << shift_factor) & T::SEVEN;
 
-    let index: T = x_in | y_in | state.into();
-    let index = index.try_into().unwrap();
+    let index = (x_in | y_in | state.into()).as_usize();
     let r: u8 = LUT_3[index];
-    let r: <T as Unsigned>::Key = r.into();
+    let r: T::Key = r.into();
 
-    let mut hhh: <T as Unsigned>::Key = r & T::SIXTY_THREE;
+    let mut hhh: T::Key = r & T::SIXTY_THREE;
     hhh >>= ((shift_factor as u8) << 1).into();
 
     result | hhh
@@ -202,10 +212,6 @@ where
 /// assert_eq!(y, 0u64);
 ///```
 pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
-where
-    <T as TryInto<usize>>::Error: core::fmt::Debug,
-    <<T as Unsigned>::Key as TryInto<u8>>::Error: core::fmt::Debug,
-    <T as Unsigned>::Key: TryInto<u8>,
 {
     // Mapping from hilbert states to 2D coordinates
     // SHHH => SXXXYYY
@@ -236,9 +242,9 @@ where
     let mut shift_factor = lowest_order as i8 - 3;
 
     while shift_factor > 0 {
-        let h_in: <T as Unsigned>::Key = h >> ((shift_factor as usize) << 1);
-        let h_in: <T as Unsigned>::Key = h_in & T::SIXTY_THREE;
-        let h_in: u8 = h_in.try_into().unwrap();
+        let h_in: T::Key = h >> ((shift_factor as usize) << 1);
+        let h_in: T::Key = h_in & T::SIXTY_THREE;
+        let h_in: u8 = h_in.as_u8();
 
         let r: u8 = LUT_3_REV[state as usize | h_in as usize];
         state = r & 0b11000000;
@@ -256,9 +262,9 @@ where
     }
 
     shift_factor *= -1;
-    let h_in: <T as Unsigned>::Key = h << ((shift_factor as usize) << 1);
-    let h_in: <T as Unsigned>::Key = h_in & T::SIXTY_THREE;
-    let h_in: u8 = h_in.try_into().unwrap();
+    let h_in: T::Key = h << ((shift_factor as usize) << 1);
+    let h_in: T::Key = h_in & T::SIXTY_THREE;
+    let h_in: u8 = h_in.as_u8();
 
     let r: u8 = LUT_3_REV[state as usize | h_in as usize];
 
