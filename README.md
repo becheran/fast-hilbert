@@ -21,7 +21,7 @@ Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and on
 * Very fast using an efficient 512 Byte *LUT*
 * Only one additional [dependency](https://crates.io/crates/num-traits)
 
-Benchmarking the conversion from full 256x256 discrete 2D space to the 1D hilbert space, shows that *fast_hilbert* is about **12 times faster** compared to the fastest 2D hilbert transformation libs written in rust. Benchmarked on a *Intel i5-6400 CPU @ 2.70 GHz, 4 Cores* with *8 GB RAM*:
+Benchmarking the conversion from full 256x256 discrete 2D space to the 1D hilbert space, shows that *fast_hilbert* more than **twice as fast** compared to the fastest 2D hilbert transformation libs written in rust. Benchmarked on a *Intel i5-6400 CPU @ 2.70 GHz, 4 Cores* with *8 GB RAM*:
 
 | Library                                                | Time        | Description       |
  ------------------------------------------------------- |------------:| ----------------- |
