@@ -33,6 +33,20 @@ fn criterion_benchmark(c: &mut Criterion) {
             }
         })
     });
+    c.bench_function("hilbert_2d_moore", |b| {
+        b.iter(|| {
+            for x in 0..n {
+                for y in 0..n {
+                    black_box(hilbert_2d::xy2h_discrete(
+                        black_box(x),
+                        black_box(y),
+                        black_box(bits),
+                        black_box(hilbert_2d::Variant::Moore),
+                    ));
+                }
+            }
+        })
+    });
 
     c.bench_function("hilbert", |b| {
         b.iter(|| {
@@ -58,6 +72,19 @@ fn criterion_benchmark(c: &mut Criterion) {
             }
         })
     });
+    c.bench_function("fast_hilbert_moore", |b| {
+        b.iter(|| {
+            for x in 0..n {
+                for y in 0..n {
+                    black_box(fast_hilbert::xy2h_moore(
+                        black_box(x as u32),
+                        black_box(y as u32),
+                        black_box(bits as u8),
+                    ));
+                }
+            }
+        })
+    });
 
     let xy_low: (u32, u32) = (1, 2);
     let xy_high: (u32, u32) = (u32::MAX - 1, u32::MAX - 2);
@@ -71,6 +98,16 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("fast_hilbert_high", |b| {
         b.iter(|| {
             black_box(fast_hilbert::xy2h(black_box(xy_high.0), black_box(xy_high.1), black_box(order)));
+        })
+    });
+    c.bench_function("fast_hilbert_moore_low", |b| {
+        b.iter(|| {
+            black_box(fast_hilbert::xy2h_moore(black_box(xy_low.0), black_box(xy_low.1), black_box(order)));
+        })
+    });
+    c.bench_function("fast_hilbert_moore_high", |b| {
+        b.iter(|| {
+            black_box(fast_hilbert::xy2h_moore(black_box(xy_high.0), black_box(xy_high.1), black_box(order)));
         })
     });
     c.bench_function("hilbert_curve_low", |b| {
@@ -100,6 +137,26 @@ fn criterion_benchmark(c: &mut Criterion) {
                 xy_high.1 as usize,
                 order as usize,
                 hilbert_2d::Variant::Hilbert,
+            ));
+        })
+    });
+    c.bench_function("hilbert_2d_moore_low", |b| {
+        b.iter(|| {
+            black_box(hilbert_2d::xy2h_discrete(
+                xy_low.0 as usize,
+                xy_low.1 as usize,
+                order as usize,
+                hilbert_2d::Variant::Moore,
+            ));
+        })
+    });
+    c.bench_function("hilbert_2d_moore_high", |b| {
+        b.iter(|| {
+            black_box(hilbert_2d::xy2h_discrete(
+                xy_high.0 as usize,
+                xy_high.1 as usize,
+                order as usize,
+                hilbert_2d::Variant::Moore,
             ));
         })
     });
