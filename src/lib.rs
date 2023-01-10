@@ -63,6 +63,8 @@ pub trait UnsignedBase:
     fn as_usize(self) -> usize;
     // Save since number will never exceed 8 bits
     fn as_u8(self) -> u8;
+    // Number of bits the type uses
+    const BITS: u8;
     const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
@@ -80,6 +82,7 @@ macro_rules! base_impl {
             const THREE: Self = 3;
             const SEVEN: Self = 7;
             const SIXTY_THREE: Self = 63;
+            const BITS: u8 = (core::mem::size_of::<Self>() * 8) as u8;
 
             #[inline]
             fn leading_zeros(self) -> u32 {
@@ -177,9 +180,12 @@ where
         223, 138, 137, 134, 133, 229, 164, 35, 224, 117, 118, 121, 122, 230, 103, 162, 161, 52,
         247, 56, 251, 233, 168, 109, 110, 179, 50, 253, 188, 234, 107, 44, 239, 112, 49, 254, 127,
     ];
+    let mut order = order;
     if order <= 0 {
-        //TODO order = 1;
-    } // TOO MAX else if order > T::
+        order = 1;
+    } else if order >= T::BITS - 1 {
+        order = T::BITS - 1;
+    }
     let order_minus_one = order - 1;
     let xy = (x >> order_minus_one as usize) << 1 as usize | (y >> order_minus_one as usize);
     let (h0, init_state) = if xy == T::ZERO {
@@ -191,7 +197,7 @@ where
     } else if xy == T::THREE {
         (T::Key::TWO, 2)
     } else {
-        panic!("FOO")
+        panic!("(bug) Unexpected case")
     };
     (h0 << (order_minus_one as usize * 2))
         | xy2h_lut3(x, y, order_minus_one, LUT_3, false, init_state)
@@ -207,7 +213,7 @@ fn xy2h_lut3<T: Unsigned>(
     init_state: u8,
 ) -> <T as Unsigned>::Key {
     let lowest_order: u8 = if skip_leading_zeros {
-        let coor_bits = (core::mem::size_of::<T>() << 3) as u32;
+        let coor_bits = T::BITS as u32;
         let useless_bits = (x | y).leading_zeros() & !1;
         (coor_bits - useless_bits) as u8 + (order & 1)
     } else {
@@ -284,22 +290,44 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
 /// TODO
 pub fn h2xy_moore<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
     const LUT_3_REV: [u8; 256] = [
-        163, 226, 234, 107, 243, 187, 186, 50, 241, 185, 184, 48, 168, 169, 97, 96, 167, 230, 238,
-        111, 247, 191, 190, 54, 245, 189, 188, 52, 172, 173, 101, 100, 156, 157, 85, 84, 12, 68,
-        69, 205, 14, 70, 71, 207, 151, 214, 222, 95, 152, 153, 81, 80, 8, 64, 65, 201, 10, 66, 67,
-        203, 147, 210, 218, 91, 241, 185, 184, 48, 243, 187, 186, 50, 42, 98, 99, 235, 40, 96, 97,
-        233, 152, 153, 81, 80, 8, 64, 65, 201, 10, 66, 67, 203, 147, 210, 218, 91, 156, 157, 85,
-        84, 12, 68, 69, 205, 14, 70, 71, 207, 151, 214, 222, 95, 231, 175, 174, 38, 165, 228, 236,
-        109, 181, 244, 252, 125, 62, 118, 119, 255, 199, 143, 142, 6, 133, 196, 204, 77, 149, 212,
-        220, 93, 30, 86, 87, 223, 167, 230, 238, 111, 247, 191, 190, 54, 245, 189, 188, 52, 172,
-        173, 101, 100, 163, 226, 234, 107, 243, 187, 186, 50, 241, 185, 184, 48, 168, 169, 97, 96,
-        209, 153, 152, 16, 211, 155, 154, 18, 10, 66, 67, 203, 8, 64, 65, 201, 135, 198, 206, 79,
-        215, 159, 158, 22, 213, 157, 156, 20, 140, 141, 69, 68, 195, 139, 138, 2, 129, 192, 200,
-        73, 145, 208, 216, 89, 26, 82, 83, 219, 227, 171, 170, 34, 161, 224, 232, 105, 177, 240,
-        248, 121, 58, 114, 115, 251, 188, 189, 117, 116, 44, 100, 101, 237, 46, 102, 103, 239, 183,
-        246, 254, 127,
+        120, 57, 49, 176, 40, 96, 97, 233, 42, 98, 99, 235, 179, 242, 250, 123, 60, 116, 117, 253,
+        126, 63, 55, 182, 110, 47, 39, 166, 229, 173, 172, 36, 28, 84, 85, 221, 94, 31, 23, 150,
+        78, 15, 7, 134, 197, 141, 140, 4, 131, 194, 202, 75, 211, 155, 154, 18, 209, 153, 152, 16,
+        72, 9, 1, 128, 56, 112, 113, 249, 122, 59, 51, 178, 106, 43, 35, 162, 225, 169, 168, 32,
+        88, 25, 17, 144, 8, 64, 65, 201, 10, 66, 67, 203, 147, 210, 218, 91, 92, 29, 21, 148, 12,
+        68, 69, 205, 14, 70, 71, 207, 151, 214, 222, 95, 231, 175, 174, 38, 165, 228, 236, 109,
+        181, 244, 252, 125, 62, 118, 119, 255, 199, 143, 142, 6, 133, 196, 204, 77, 149, 212, 220,
+        93, 30, 86, 87, 223, 167, 230, 238, 111, 247, 191, 190, 54, 245, 189, 188, 52, 108, 45, 37,
+        164, 163, 226, 234, 107, 243, 187, 186, 50, 241, 185, 184, 48, 104, 41, 33, 160, 24, 80,
+        81, 217, 90, 27, 19, 146, 74, 11, 3, 130, 193, 137, 136, 0, 135, 198, 206, 79, 215, 159,
+        158, 22, 213, 157, 156, 20, 76, 13, 5, 132, 195, 139, 138, 2, 129, 192, 200, 73, 145, 208,
+        216, 89, 26, 82, 83, 219, 227, 171, 170, 34, 161, 224, 232, 105, 177, 240, 248, 121, 58,
+        114, 115, 251, 124, 61, 53, 180, 44, 100, 101, 237, 46, 102, 103, 239, 183, 246, 254, 127,
     ];
-    h2xy_lut3(h, order, LUT_3_REV, false, 1 / 2)
+    let mut order = order;
+    if order <= 0 {
+        order = 1;
+    } else if order >= T::BITS - 1 {
+        order = T::BITS - 1;
+    }
+    let order_minus_one = order - 1;
+    let h0 = h >> (order_minus_one * 2) as usize;
+    let (x0, y0, init_state) = if h0 == T::Key::ZERO {
+        (T::ZERO, T::ZERO, 1)
+    } else if h0 == T::Key::ONE {
+        (T::ZERO, T::ONE, 1)
+    } else if h0 == T::Key::TWO {
+        (T::ONE, T::ONE, 2)
+    } else if h0 == T::Key::THREE {
+        (T::ONE, T::ZERO, 2)
+    } else {
+        panic!("(bug) Unexpected case")
+    };
+    let (x, y) = h2xy_lut3(h, order_minus_one, LUT_3_REV, false, init_state);
+    (
+        (x0 << order_minus_one as usize) | x,
+        (y0 << order_minus_one as usize) | y,
+    )
 }
 
 #[inline]
@@ -311,9 +339,8 @@ fn h2xy_lut3<T: Unsigned>(
     init_state: u8,
 ) -> (T, T) {
     let lowest_order: u8 = if skip_leading_zeros {
-        let coor_bits = (core::mem::size_of::<T>() << 3) as u8;
         let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
-        coor_bits - useless_bits + (order & 1)
+        T::BITS - useless_bits + (order & 1)
     } else {
         order // TODO first iteration is default route
     };
@@ -321,7 +348,7 @@ fn h2xy_lut3<T: Unsigned>(
     let mut x_result: T = T::ZERO;
     let mut y_result: T = T::ZERO;
 
-    let mut state = init_state;
+    let mut state = init_state << 6;
     let mut shift_factor = lowest_order as i8 - 3;
 
     while shift_factor > 0 {
@@ -513,7 +540,7 @@ mod tests {
         ];
         const LUT_SH2SXY_MOORE: [u8; 16] = [
             //  0         1        2       3    <- H
-            0b10_10, 0b10_11, 0b01_01, 0b01_00, // S0
+            0b01_10, 0b00_11, 0b00_01, 0b10_00, // S0
             0b00_10, 0b01_00, 0b01_01, 0b11_11, // S1
             0b11_01, 0b10_11, 0b10_10, 0b00_00, // S2
             0b10_01, 0b11_00, 0b11_10, 0b01_11, // S3
