@@ -20,6 +20,7 @@ Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and on
 * Speedup via lowest order computation (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#2](https://github.com/becheran/fast-hilbert/pull/2))
 * Very fast using an efficient 512 Byte *LUT*
 * No additional dependency
+* Moore variant. See <https://arxiv.org/abs/1311.2868>
 
 Benchmarking the conversion from full 256x256 discrete 2D space to the 1D hilbert space, shows that *fast_hilbert* more than **twice as fast** compared to the fastest 2D hilbert transformation libs written in rust. Benchmarked on a *Intel i5-6400 CPU @ 2.70 GHz, 4 Cores* with *8 GB RAM*:
 
@@ -40,3 +41,10 @@ For example the computation of `xy2h(1, 2, 64)` is very fast to compute using `f
 | hilbert_2d       |  73 ns              | 72 ns                                   |
 | hilbert_curve    |  67 ns              | 49 ns                                   |
 | hilbert          |  690 ns             | 680 ns                                  |
+
+The hilbert moore variant has the following performance
+
+| Library          | Full       | Low Order | High Order |
+| ---------------- | ---------: | --------: | ---------: |
+| **fast_hilbert** |  **1 ms**  | **32 ns** | **39 ns**  |
+| hilbert_2d       |  1.8 ms    | 59 ns     | 59 ns      |

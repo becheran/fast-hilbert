@@ -56,19 +56,33 @@ pub trait UnsignedBase:
     + ShrAssign
     + ShlAssign
     + BitOrAssign
+    + core::cmp::PartialEq
 {
     fn leading_zeros(self) -> u32;
     // Save since will only be used for usize <= 8 bit for LUT lookup
     fn as_usize(self) -> usize;
     // Save since number will never exceed 8 bits
     fn as_u8(self) -> u8;
+    // Number of bits the type uses
+    const BITS: u8;
     const ZERO: Self;
+    const ONE: Self;
+    const TWO: Self;
+    const THREE: Self;
+    const SEVEN: Self;
+    const SIXTY_THREE: Self;
 }
 
 macro_rules! base_impl {
     ($T:ty) => {
         impl UnsignedBase for $T {
             const ZERO: Self = 0;
+            const ONE: Self = 1;
+            const TWO: Self = 2;
+            const THREE: Self = 3;
+            const SEVEN: Self = 7;
+            const SIXTY_THREE: Self = 63;
+            const BITS: u8 = (core::mem::size_of::<Self>() * 8) as u8;
 
             #[inline]
             fn leading_zeros(self) -> u32 {
@@ -100,29 +114,19 @@ where
     Self::Key: UnsignedBase,
 {
     type Key; // Double the self unsigned type
-    const SEVEN: Self; // Pattern needed for computation
-    const SIXTY_THREE: Self::Key; // Pattern needed for computation
 }
 
 impl Unsigned for u64 {
     type Key = u128;
-    const SEVEN: Self = 7;
-    const SIXTY_THREE: Self::Key = 63;
 }
 impl Unsigned for u32 {
     type Key = u64;
-    const SEVEN: Self = 7;
-    const SIXTY_THREE: Self::Key = 63;
 }
 impl Unsigned for u16 {
     type Key = u32;
-    const SEVEN: Self = 7;
-    const SIXTY_THREE: Self::Key = 63;
 }
 impl Unsigned for u8 {
     type Key = u16;
-    const SEVEN: Self = 7;
-    const SIXTY_THREE: Self::Key = 63;
 }
 
 /// Convert form 2D to 1D hilbert space.
@@ -138,11 +142,7 @@ impl Unsigned for u8 {
 /// let hilbert = fast_hilbert::xy2h(1u64, 0, 1);
 /// assert_eq!(hilbert, 0b11u128);
 ///```
-pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
-{
-    // Mapping from State and coordinates to hilbert states
-    // SXXXYYY => SHHH
-    //   8 bit => 8 bit
+pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
     const LUT_3: [u8; 256] = [
         64, 1, 206, 79, 16, 211, 84, 21, 131, 2, 205, 140, 81, 82, 151, 22, 4, 199, 8, 203, 158,
         157, 88, 25, 69, 70, 73, 74, 31, 220, 155, 26, 186, 185, 182, 181, 32, 227, 100, 37, 59,
@@ -158,13 +158,70 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
         35, 224, 117, 118, 121, 122, 218, 91, 28, 223, 138, 137, 134, 133, 217, 152, 93, 94, 11,
         200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
+    xy2h_lut3(x, y, order, LUT_3, true, 0)
+}
 
-    let coor_bits = (core::mem::size_of::<T>() << 3) as u32;
-    let useless_bits = (x | y).leading_zeros() & !1;
-    let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
+pub fn xy2h_moore<T: Unsigned>(x: T, y: T, order: u8) -> T::Key
+where
+    <T as Unsigned>::Key: From<T>,
+{
+    const LUT_3: [u8; 256] = [
+        191, 62, 241, 176, 47, 236, 171, 42, 124, 61, 242, 115, 174, 173, 104, 41, 59, 248, 55,
+        244, 97, 98, 167, 38, 186, 185, 182, 181, 32, 227, 100, 37, 69, 70, 73, 74, 31, 220, 155,
+        26, 4, 199, 8, 203, 158, 157, 88, 25, 131, 2, 205, 140, 81, 82, 151, 22, 64, 1, 206, 79,
+        16, 211, 84, 21, 85, 86, 89, 90, 101, 102, 105, 106, 20, 215, 24, 219, 36, 231, 40, 235,
+        147, 18, 221, 156, 163, 34, 237, 172, 80, 17, 222, 95, 96, 33, 238, 111, 15, 204, 139, 10,
+        245, 180, 51, 240, 142, 141, 72, 9, 246, 119, 178, 177, 65, 66, 135, 6, 249, 184, 125, 126,
+        0, 195, 68, 5, 250, 123, 60, 255, 63, 252, 187, 58, 197, 132, 3, 192, 190, 189, 120, 57,
+        198, 71, 130, 129, 113, 114, 183, 54, 201, 136, 77, 78, 48, 243, 116, 53, 202, 75, 12, 207,
+        175, 46, 225, 160, 159, 30, 209, 144, 108, 45, 226, 99, 92, 29, 210, 83, 43, 232, 39, 228,
+        27, 216, 23, 212, 170, 169, 166, 165, 154, 153, 150, 149, 213, 148, 19, 208, 143, 14, 193,
+        128, 214, 87, 146, 145, 76, 13, 194, 67, 217, 152, 93, 94, 11, 200, 7, 196, 218, 91, 28,
+        223, 138, 137, 134, 133, 229, 164, 35, 224, 117, 118, 121, 122, 230, 103, 162, 161, 52,
+        247, 56, 251, 233, 168, 109, 110, 179, 50, 253, 188, 234, 107, 44, 239, 112, 49, 254, 127,
+    ];
+    let mut order = order;
+    if order <= 0 {
+        order = 1;
+    } else if order >= T::BITS - 1 {
+        order = T::BITS - 1;
+    }
+    let order_minus_one = order - 1;
+    let xy = (x >> order_minus_one as usize) << 1 as usize | (y >> order_minus_one as usize);
+    let (h0, init_state) = if xy == T::ZERO {
+        (T::Key::ZERO, 1)
+    } else if xy == T::ONE {
+        (T::Key::ONE, 1)
+    } else if xy == T::TWO {
+        (T::Key::THREE, 2)
+    } else if xy == T::THREE {
+        (T::Key::TWO, 2)
+    } else {
+        panic!("(bug) Unexpected case")
+    };
+    (h0 << (order_minus_one as usize * 2))
+        | xy2h_lut3(x, y, order_minus_one, LUT_3, false, init_state)
+}
+
+#[inline]
+fn xy2h_lut3<T: Unsigned>(
+    x: T,
+    y: T,
+    order: u8,
+    lut3: [u8; 256],
+    skip_leading_zeros: bool,
+    init_state: u8,
+) -> <T as Unsigned>::Key {
+    let lowest_order: u8 = if skip_leading_zeros {
+        let coor_bits = T::BITS as u32;
+        let useless_bits = (x | y).leading_zeros() & !1;
+        (coor_bits - useless_bits) as u8 + (order & 1)
+    } else {
+        order
+    };
 
     let mut result: T::Key = T::Key::ZERO;
-    let mut state = 0u8;
+    let mut state = init_state << 6;
     let mut shift_factor = lowest_order as i8 - 3;
 
     while shift_factor > 0 {
@@ -173,11 +230,11 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
 
         let index = (x_in | y_in | state.into()).as_usize();
 
-        let r = LUT_3[index];
+        let r = lut3[index];
         state = r & 0b11000000;
         let r: T::Key = r.into();
 
-        let mut hhh: T::Key = r & T::SIXTY_THREE;
+        let mut hhh: T::Key = r & T::Key::SIXTY_THREE;
         hhh <<= ((shift_factor as u8) << 1).into();
         result |= hhh;
         shift_factor -= 3;
@@ -188,10 +245,10 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
     let y_in = (y << shift_factor) & T::SEVEN;
 
     let index = (x_in | y_in | state.into()).as_usize();
-    let r: u8 = LUT_3[index];
+    let r: u8 = lut3[index];
     let r: T::Key = r.into();
 
-    let mut hhh: T::Key = r & T::SIXTY_THREE;
+    let mut hhh: T::Key = r & T::Key::SIXTY_THREE;
     hhh >>= ((shift_factor as u8) << 1).into();
 
     result | hhh
@@ -211,11 +268,7 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
 /// assert_eq!(x, 1u64);
 /// assert_eq!(y, 0u64);
 ///```
-pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
-{
-    // Mapping from hilbert states to 2D coordinates
-    // SHHH => SXXXYYY
-    //   8 bit => 8 bit
+pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
     const LUT_3_REV: [u8; 256] = [
         64, 1, 9, 136, 16, 88, 89, 209, 18, 90, 91, 211, 139, 202, 194, 67, 4, 76, 77, 197, 70, 7,
         15, 142, 86, 23, 31, 158, 221, 149, 148, 28, 36, 108, 109, 229, 102, 39, 47, 174, 118, 55,
@@ -231,22 +284,79 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
-    let coor_bits = (core::mem::size_of::<T>() << 3) as u8;
-    let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
-    let lowest_order = coor_bits - useless_bits + (order & 1);
+    h2xy_lut3(h, order, LUT_3_REV, true, 0)
+}
+
+/// TODO
+pub fn h2xy_moore<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
+    const LUT_3_REV: [u8; 256] = [
+        120, 57, 49, 176, 40, 96, 97, 233, 42, 98, 99, 235, 179, 242, 250, 123, 60, 116, 117, 253,
+        126, 63, 55, 182, 110, 47, 39, 166, 229, 173, 172, 36, 28, 84, 85, 221, 94, 31, 23, 150,
+        78, 15, 7, 134, 197, 141, 140, 4, 131, 194, 202, 75, 211, 155, 154, 18, 209, 153, 152, 16,
+        72, 9, 1, 128, 56, 112, 113, 249, 122, 59, 51, 178, 106, 43, 35, 162, 225, 169, 168, 32,
+        88, 25, 17, 144, 8, 64, 65, 201, 10, 66, 67, 203, 147, 210, 218, 91, 92, 29, 21, 148, 12,
+        68, 69, 205, 14, 70, 71, 207, 151, 214, 222, 95, 231, 175, 174, 38, 165, 228, 236, 109,
+        181, 244, 252, 125, 62, 118, 119, 255, 199, 143, 142, 6, 133, 196, 204, 77, 149, 212, 220,
+        93, 30, 86, 87, 223, 167, 230, 238, 111, 247, 191, 190, 54, 245, 189, 188, 52, 108, 45, 37,
+        164, 163, 226, 234, 107, 243, 187, 186, 50, 241, 185, 184, 48, 104, 41, 33, 160, 24, 80,
+        81, 217, 90, 27, 19, 146, 74, 11, 3, 130, 193, 137, 136, 0, 135, 198, 206, 79, 215, 159,
+        158, 22, 213, 157, 156, 20, 76, 13, 5, 132, 195, 139, 138, 2, 129, 192, 200, 73, 145, 208,
+        216, 89, 26, 82, 83, 219, 227, 171, 170, 34, 161, 224, 232, 105, 177, 240, 248, 121, 58,
+        114, 115, 251, 124, 61, 53, 180, 44, 100, 101, 237, 46, 102, 103, 239, 183, 246, 254, 127,
+    ];
+    let mut order = order;
+    if order <= 0 {
+        order = 1;
+    } else if order >= T::BITS - 1 {
+        order = T::BITS - 1;
+    }
+    let order_minus_one = order - 1;
+    let h0 = h >> (order_minus_one * 2) as usize;
+    let (x0, y0, init_state) = if h0 == T::Key::ZERO {
+        (T::ZERO, T::ZERO, 1)
+    } else if h0 == T::Key::ONE {
+        (T::ZERO, T::ONE, 1)
+    } else if h0 == T::Key::TWO {
+        (T::ONE, T::ONE, 2)
+    } else if h0 == T::Key::THREE {
+        (T::ONE, T::ZERO, 2)
+    } else {
+        panic!("(bug) Unexpected case")
+    };
+    let (x, y) = h2xy_lut3(h, order_minus_one, LUT_3_REV, false, init_state);
+    (
+        (x0 << order_minus_one as usize) | x,
+        (y0 << order_minus_one as usize) | y,
+    )
+}
+
+#[inline]
+fn h2xy_lut3<T: Unsigned>(
+    h: <T as Unsigned>::Key,
+    order: u8,
+    lut3: [u8; 256],
+    skip_leading_zeros: bool,
+    init_state: u8,
+) -> (T, T) {
+    let lowest_order: u8 = if skip_leading_zeros {
+        let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
+        T::BITS - useless_bits + (order & 1)
+    } else {
+        order // TODO first iteration is default route
+    };
 
     let mut x_result: T = T::ZERO;
-    let mut y_result: T = x_result;
+    let mut y_result: T = T::ZERO;
 
-    let mut state = 0u8;
+    let mut state = init_state << 6;
     let mut shift_factor = lowest_order as i8 - 3;
 
     while shift_factor > 0 {
         let h_in: T::Key = h >> ((shift_factor as usize) << 1);
-        let h_in: T::Key = h_in & T::SIXTY_THREE;
+        let h_in: T::Key = h_in & T::Key::SIXTY_THREE;
         let h_in: u8 = h_in.as_u8();
 
-        let r: u8 = LUT_3_REV[state as usize | h_in as usize];
+        let r: u8 = lut3[state as usize | h_in as usize];
         state = r & 0b11000000;
 
         let xxx: T = r.into();
@@ -263,10 +373,10 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
 
     shift_factor *= -1;
     let h_in: T::Key = h << ((shift_factor as usize) << 1);
-    let h_in: T::Key = h_in & T::SIXTY_THREE;
+    let h_in: T::Key = h_in & T::Key::SIXTY_THREE;
     let h_in: u8 = h_in.as_u8();
 
-    let r: u8 = LUT_3_REV[state as usize | h_in as usize];
+    let r: u8 = lut3[state as usize | h_in as usize];
 
     let xxx: T = r.into();
     let xxx: T = xxx >> 3i8;
@@ -283,85 +393,8 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
 
 #[cfg(test)]
 mod tests {
-    // From 2D to 1D
-    // 4 bits => 4 bits
-    const LUT_SXY2SH: [u8; 16] = [4, 1, 11, 2, 0, 15, 5, 6, 10, 9, 3, 12, 14, 7, 13, 8];
-
-    // From 1D to 2D
-    // 4 bits => 4 bits
-    const LUT_SH2SXY: [u8; 16] = [
-        0b0100, 0b0001, 0b0011, 0b1010, //
-        0b0000, 0b0110, 0b0111, 0b1101, //
-        0b1111, 0b1001, 0b1000, 0b0010, //
-        0b1011, 0b1110, 0b1100, 0b0101,
-    ];
-
     use super::*;
     extern crate image;
-
-    #[test]
-    fn gen_lut3_sxxxyyy() {
-        // State 0, 1, 2, 3
-        let mut lut_3: [u8; 256] = [0; 256];
-        for input in 0..=255 {
-            //for input in 4..=4 {
-            let mut state: u8 = (input as u8 & 0b11000000) >> 4;
-            let mut result: u8 = 0;
-            let mut x_mask: u8 = 0b00100000;
-            let mut y_mask: u8 = 0b00000100;
-            for i in 0..3 {
-                let idx = state | (input & x_mask) >> (4 - i) | (input & y_mask) >> (2 - i);
-                let r = LUT_SXY2SH[idx as usize];
-                // Override State
-                state = r & 0b1100;
-                result = (result & 0b00111111) | (state << 4);
-                // Dx Dy
-                result = (result & !(0b00110000 >> (i * 2))) | ((r & 0b0011) << ((2 - i) * 2));
-                x_mask >>= 1;
-                y_mask >>= 1;
-            }
-            lut_3[input as usize] = result;
-        }
-        println!("{:?}", lut_3);
-    }
-
-    #[test]
-    fn gen_lut3_shhh() {
-        // State 0, 1, 2, 3
-        let mut lut_3: [u8; 256] = [0; 256];
-        for input in 0..=255 {
-            //for input in 4..=4 {
-            let mut state: u8 = (input as u8 & 0b11000000) >> 6;
-            let mut result: u8 = 0;
-            let mut h_mask: u8 = 0b00110000;
-            for i in 0..3 {
-                let idx = (state << 2) | (input & h_mask) >> (4 - (i * 2));
-                let r = LUT_SH2SXY[idx as usize];
-                // Override State
-                state = (r & 0b1100) >> 2;
-                let x = (r & 0b10) >> 1;
-                let y = r & 0b1;
-                // Set state
-                result = (result & 0b00111111) | (state << 6);
-                result = (result & !(0b00100000 >> i)) | (x << (5 - i));
-                result = (result & !(0b00000100 >> i)) | (y << (2 - i));
-                h_mask >>= 2;
-            }
-            lut_3[input as usize] = result;
-        }
-        println!("{:?}", lut_3);
-    }
-
-    #[test]
-    fn hilbert_and_rev() {
-        let order = 4;
-        let max = 2usize.pow(order * 2);
-        for h in 0..max {
-            let (x, y): (u32, u32) = h2xy(h as u64, order as u8);
-            let res_h = xy2h(x, y, order as u8);
-            assert_eq!(h as u64, res_h);
-        }
-    }
 
     #[test]
     fn hilbert_and_rev_full_order() {
@@ -375,59 +408,53 @@ mod tests {
     }
 
     #[test]
-    fn h2xy_one_bit() {
-        let h2xy = h2xy::<u8>;
-        let (x0, y0) = h2xy(0, 1);
-        let (x1, y1) = h2xy(1, 1);
-        let (x2, y2) = h2xy(2, 1);
-        let (x3, y3) = h2xy(3, 1);
-        assert_eq!((x0, y0), (0, 0));
-        assert_eq!((x1, y1), (0, 1));
-        assert_eq!((x2, y2), (1, 1));
-        assert_eq!((x3, y3), (1, 0));
-    }
-
-    #[test]
-    fn xy2h_one_bit() {
-        let d0 = xy2h(0u64, 0, 1);
-        let d1 = xy2h(0u64, 1, 1);
-        let d2 = xy2h(1u64, 0, 1);
-        let d3 = xy2h(1u64, 1, 1);
-        assert_eq!(d0, 0);
-        assert_eq!(d1, 1);
-        assert_eq!(d2, 3);
-        assert_eq!(d3, 2);
-    }
-
-    #[test]
-    fn h2xy_two_bits() {
-        let h2xy = h2xy::<u32>;
-        for h in 0..8 {
-            let (rx, ry) = h2xy(h as u64, 2);
-            let h_cmp = xy2h(rx as u32, ry as u32, 2);
-            assert_eq!(h, h_cmp as usize);
-        }
-    }
-
-    #[test]
-    fn xy2h_two_bits() {
-        for x in 0..4 {
-            for y in 0..4 {
-                let d = hilbert_curve::convert_2d_to_1d(x, y, 4);
-                let df = xy2h(x as u32, y as u32, 2);
-                assert_eq!(d as u64, df);
+    fn xy2h_hilbert() {
+        for &order in &[1, 2, 3, 4, 5, 8, 13, 16] {
+            for x in 0..order * 2 {
+                for y in 0..order * 2 {
+                    let d = hilbert_2d::xy2h_discrete(x, y, order, hilbert_2d::Variant::Hilbert);
+                    let df = xy2h(x as u32, y as u32, order as u8);
+                    assert_eq!(d as u64, df);
+                }
             }
         }
     }
 
     #[test]
-    fn h2xy_test() {
-        for &bits in &[1, 2, 3, 5, 8, 13, 16] {
-            let bits = (bits + 1) & !1;
-            let numbers = 2usize.pow(bits);
-            for d in (0..(numbers * numbers)).step_by(numbers as usize) {
-                let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
-                assert_eq!(xy2h(x as u32, y as u32, bits as u8), d as u64);
+    fn xy2h_moore_test() {
+        for &order in &[1, 2, 3, 4, 5, 8, 13, 16] {
+            for x in 0..order * 2 {
+                for y in 0..order * 2 {
+                    let d = hilbert_2d::xy2h_discrete(x, y, order, hilbert_2d::Variant::Moore);
+                    let df = xy2h_moore(x as u32, y as u32, order as u8);
+                    assert_eq!(d as u64, df);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn h2xy_hilbert() {
+        for &order in &[1, 2, 3, 5, 8] {
+            let numbers = 4usize.pow(order);
+            for d in 0..numbers {
+                let (x, y) =
+                    hilbert_2d::h2xy_discrete(d, order as usize, hilbert_2d::Variant::Hilbert);
+                let (x_fast, y_fast): (u32, u32) = h2xy(d as u64, order as u8);
+                assert_eq!((x, y), (x_fast as usize, y_fast as usize));
+            }
+        }
+    }
+
+    #[test]
+    fn h2xy_moore_test() {
+        for &order in &[1, 2, 3, 5, 8] {
+            let numbers = 4usize.pow(order);
+            for d in 0..numbers {
+                let (x, y) =
+                    hilbert_2d::h2xy_discrete(d, order as usize, hilbert_2d::Variant::Moore);
+                let (x_fast, y_fast): (u32, u32) = h2xy_moore(d as u64, order as u8);
+                assert_eq!((x, y), (x_fast as usize, y_fast as usize));
             }
         }
     }
@@ -490,5 +517,92 @@ mod tests {
             let imgbuf = draw_hilbert_curve(i);
             imgbuf.save(format!("doc/h{}.png", i)).unwrap();
         }
+    }
+
+    #[test]
+    fn gen_lut3() {
+        // From 2D to 1D
+        // 4 bits => 4 bits
+        const LUT_SXY2SH_HILBERT: [u8; 16] = [4, 1, 11, 2, 0, 15, 5, 6, 10, 9, 3, 12, 14, 7, 13, 8];
+        const LUT_SH2SXY_HILBERT: [u8; 16] = [
+            //  0         1        2       3    <- H
+            0b01_00, 0b00_01, 0b00_11, 0b10_10, // S0
+            0b00_00, 0b01_10, 0b01_11, 0b11_01, // S1
+            0b11_11, 0b10_01, 0b10_00, 0b00_10, // S2
+            0b10_11, 0b11_10, 0b11_00, 0b01_01, // S3
+        ];
+        const LUT_SXY2SH_MOORE: [u8; 16] = [
+            //  00       01       10      11    <- XY
+            0b10_11, 0b00_10, 0b01_00, 0b00_01, // S0
+            0b01_01, 0b01_10, 0b00_00, 0b11_11, // S1
+            0b00_11, 0b11_00, 0b10_10, 0b10_01, // S2
+            0b11_01, 0b10_00, 0b11_10, 0b01_11, // S3
+        ];
+        const LUT_SH2SXY_MOORE: [u8; 16] = [
+            //  0         1        2       3    <- H
+            0b01_10, 0b00_11, 0b00_01, 0b10_00, // S0
+            0b00_10, 0b01_00, 0b01_01, 0b11_11, // S1
+            0b11_01, 0b10_11, 0b10_10, 0b00_00, // S2
+            0b10_01, 0b11_00, 0b11_10, 0b01_11, // S3
+        ];
+        println!("Hilbert sxxxyyy2shhh");
+        gen_lut3_sxxxyyy2shhh(LUT_SXY2SH_HILBERT);
+        println!("Hilbert shhh2sxxxyyy");
+        gen_lut3_shhh2sxxxyyy(LUT_SH2SXY_HILBERT);
+        println!("Moore sxxxyyy2shhh");
+        gen_lut3_sxxxyyy2shhh(LUT_SXY2SH_MOORE);
+        println!("Moore shhh2sxxxyyy");
+        gen_lut3_shhh2sxxxyyy(LUT_SH2SXY_MOORE)
+    }
+
+    fn gen_lut3_sxxxyyy2shhh(lut_sxy2sh: [u8; 16]) {
+        // State 0, 1, 2, 3
+        let mut lut_3: [u8; 256] = [0; 256];
+        for input in 0..=255 {
+            //for input in 4..=4 {
+            let mut state: u8 = (input as u8 & 0b11000000) >> 4;
+            let mut result: u8 = 0;
+            let mut x_mask: u8 = 0b00100000;
+            let mut y_mask: u8 = 0b00000100;
+            for i in 0..3 {
+                let idx = state | (input & x_mask) >> (4 - i) | (input & y_mask) >> (2 - i);
+                let r = lut_sxy2sh[idx as usize];
+                // Override State
+                state = r & 0b1100;
+                result = (result & 0b00111111) | (state << 4);
+                // Dx Dy
+                result = (result & !(0b00110000 >> (i * 2))) | ((r & 0b0011) << ((2 - i) * 2));
+                x_mask >>= 1;
+                y_mask >>= 1;
+            }
+            lut_3[input as usize] = result;
+        }
+        println!("{:?}", lut_3);
+    }
+
+    fn gen_lut3_shhh2sxxxyyy(lut_sh2sxy: [u8; 16]) {
+        // State 0, 1, 2, 3
+        let mut lut_3: [u8; 256] = [0; 256];
+        for input in 0..=255 {
+            //for input in 4..=4 {
+            let mut state: u8 = (input as u8 & 0b11000000) >> 6;
+            let mut result: u8 = 0;
+            let mut h_mask: u8 = 0b00110000;
+            for i in 0..3 {
+                let idx = (state << 2) | (input & h_mask) >> (4 - (i * 2));
+                let r = lut_sh2sxy[idx as usize];
+                // Override State
+                state = (r & 0b1100) >> 2;
+                let x = (r & 0b10) >> 1;
+                let y = r & 0b1;
+                // Set state
+                result = (result & 0b00111111) | (state << 6);
+                result = (result & !(0b00100000 >> i)) | (x << (5 - i));
+                result = (result & !(0b00000100 >> i)) | (y << (2 - i));
+                h_mask >>= 2;
+            }
+            lut_3[input as usize] = result;
+        }
+        println!("{:?}", lut_3);
     }
 }
