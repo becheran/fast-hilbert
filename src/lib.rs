@@ -303,7 +303,7 @@ mod tests {
         let mut lut_3: [u8; 256] = [0; 256];
         for input in 0..=255 {
             //for input in 4..=4 {
-            let mut state: u8 = (input as u8 & 0b11000000) >> 4;
+            let mut state: u8 = (input & 0b11000000) >> 4;
             let mut result: u8 = 0;
             let mut x_mask: u8 = 0b00100000;
             let mut y_mask: u8 = 0b00000100;
@@ -329,7 +329,7 @@ mod tests {
         let mut lut_3: [u8; 256] = [0; 256];
         for input in 0..=255 {
             //for input in 4..=4 {
-            let mut state: u8 = (input as u8 & 0b11000000) >> 6;
+            let mut state: u8 = (input & 0b11000000) >> 6;
             let mut result: u8 = 0;
             let mut h_mask: u8 = 0b00110000;
             for i in 0..3 {
@@ -402,7 +402,7 @@ mod tests {
         let h2xy = h2xy::<u32>;
         for h in 0..8 {
             let (rx, ry) = h2xy(h as u64, 2);
-            let h_cmp = xy2h(rx as u32, ry as u32, 2);
+            let h_cmp = xy2h(rx, ry, 2);
             assert_eq!(h, h_cmp as usize);
         }
     }
@@ -423,7 +423,7 @@ mod tests {
         for &bits in &[1, 2, 3, 5, 8, 13, 16] {
             let bits = (bits + 1) & !1;
             let numbers = 2usize.pow(bits);
-            for d in (0..(numbers * numbers)).step_by(numbers as usize) {
+            for d in (0..(numbers * numbers)).step_by(numbers) {
                 let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
                 assert_eq!(xy2h(x as u32, y as u32, bits as u8), d as u64);
             }
@@ -454,25 +454,25 @@ mod tests {
                 continue;
             }
             while prev.0 < *x {
-                let pixel = imgbuf.get_pixel_mut(prev.0 as u32, prev.1 as u32);
+                let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.0 += 1;
                 continue;
             }
             while prev.0 > *x {
-                let pixel = imgbuf.get_pixel_mut(prev.0 as u32, prev.1 as u32);
+                let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.0 -= 1;
                 continue;
             }
             while prev.1 < *y {
-                let pixel = imgbuf.get_pixel_mut(prev.0 as u32, prev.1 as u32);
+                let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.1 += 1;
                 continue;
             }
             while prev.1 > *y {
-                let pixel = imgbuf.get_pixel_mut(prev.0 as u32, prev.1 as u32);
+                let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.1 -= 1;
                 continue;
