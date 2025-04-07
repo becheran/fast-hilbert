@@ -11,10 +11,10 @@ categories = ["algorithms"]
 repository = "https://github.com/becheran/fast-hilbert"
 
 [dev-dependencies]
-image = "0.23.13"
-criterion = "0.4"
-hilbert = "0.1.1"
-hilbert_2d = "1.0.0"
+image = "0.25.6"
+criterion = "0.5.1"
+hilbert = "0.1.2"
+hilbert_2d = "1.1.0"
 hilbert_curve = "0.2.0"
 
 [[bench]]
