@@ -65,22 +65,38 @@ fn criterion_benchmark(c: &mut Criterion) {
     let n: usize = 2usize.pow(order as u32);
     c.bench_function("fast_hilbert_low", |b| {
         b.iter(|| {
-            black_box(fast_hilbert::xy2h(black_box(xy_low.0), black_box(xy_low.1), black_box(order)));
+            black_box(fast_hilbert::xy2h(
+                black_box(xy_low.0),
+                black_box(xy_low.1),
+                black_box(order),
+            ));
         })
     });
     c.bench_function("fast_hilbert_high", |b| {
         b.iter(|| {
-            black_box(fast_hilbert::xy2h(black_box(xy_high.0), black_box(xy_high.1), black_box(order)));
+            black_box(fast_hilbert::xy2h(
+                black_box(xy_high.0),
+                black_box(xy_high.1),
+                black_box(order),
+            ));
         })
     });
     c.bench_function("hilbert_curve_low", |b| {
         b.iter(|| {
-            black_box(hilbert_curve::convert_2d_to_1d(xy_low.0 as usize, xy_low.1 as usize, n));
+            black_box(hilbert_curve::convert_2d_to_1d(
+                xy_low.0 as usize,
+                xy_low.1 as usize,
+                n,
+            ));
         })
     });
     c.bench_function("hilbert_curve_high", |b| {
         b.iter(|| {
-            black_box(hilbert_curve::convert_2d_to_1d(xy_high.0 as usize, xy_high.1 as usize, n));
+            black_box(hilbert_curve::convert_2d_to_1d(
+                xy_high.0 as usize,
+                xy_high.1 as usize,
+                n,
+            ));
         })
     });
     c.bench_function("hilbert_2d_low", |b| {

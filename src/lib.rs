@@ -138,8 +138,7 @@ impl Unsigned for u8 {
 /// let hilbert = fast_hilbert::xy2h(1u64, 0, 1);
 /// assert_eq!(hilbert, 0b11u128);
 ///```
-pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
-{
+pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
     // Mapping from State and coordinates to hilbert states
     // SXXXYYY => SHHH
     //   8 bit => 8 bit
@@ -211,8 +210,7 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key
 /// assert_eq!(x, 1u64);
 /// assert_eq!(y, 0u64);
 ///```
-pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T)
-{
+pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
     // Mapping from hilbert states to 2D coordinates
     // SHHH => SXXXYYY
     //   8 bit => 8 bit
