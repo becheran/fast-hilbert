@@ -158,7 +158,7 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
         200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
 
-    let coor_bits = (core::mem::size_of::<T>() << 3) as u32;
+    let coor_bits = (size_of::<T>() << 3) as u32;
     let useless_bits = (x | y).leading_zeros() & !1;
     let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
 
@@ -173,7 +173,7 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
         let index = (x_in | y_in | state.into()).as_usize();
 
         let r = LUT_3[index];
-        state = r & 0b11000000;
+        state = r & 0b1100_0000;
         let r: T::Key = r.into();
 
         let mut hhh: T::Key = r & T::SIXTY_THREE;
@@ -229,7 +229,7 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
-    let coor_bits = (core::mem::size_of::<T>() << 3) as u8;
+    let coor_bits = (size_of::<T>() << 3) as u8;
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
     let lowest_order = coor_bits - useless_bits + (order & 1);
 
@@ -245,7 +245,7 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
         let h_in: u8 = h_in.as_u8();
 
         let r: u8 = LUT_3_REV[state as usize | h_in as usize];
-        state = r & 0b11000000;
+        state = r & 0b1100_0000;
 
         let xxx: T = r.into();
         let xxx: T = xxx >> 3i8;
@@ -303,24 +303,24 @@ mod tests {
         let mut lut_3: [u8; 256] = [0; 256];
         for input in 0..=255 {
             //for input in 4..=4 {
-            let mut state: u8 = (input & 0b11000000) >> 4;
+            let mut state: u8 = (input & 0b1100_0000) >> 4;
             let mut result: u8 = 0;
-            let mut x_mask: u8 = 0b00100000;
-            let mut y_mask: u8 = 0b00000100;
+            let mut x_mask: u8 = 0b0010_0000;
+            let mut y_mask: u8 = 0b0000_0100;
             for i in 0..3 {
                 let idx = state | (input & x_mask) >> (4 - i) | (input & y_mask) >> (2 - i);
                 let r = LUT_SXY2SH[idx as usize];
                 // Override State
                 state = r & 0b1100;
-                result = (result & 0b00111111) | (state << 4);
+                result = (result & 0b0011_1111) | (state << 4);
                 // Dx Dy
-                result = (result & !(0b00110000 >> (i * 2))) | ((r & 0b0011) << ((2 - i) * 2));
+                result = (result & !(0b0011_0000 >> (i * 2))) | ((r & 0b0011) << ((2 - i) * 2));
                 x_mask >>= 1;
                 y_mask >>= 1;
             }
             lut_3[input as usize] = result;
         }
-        println!("{:?}", lut_3);
+        println!("{lut_3:?}");
     }
 
     #[test]
@@ -329,9 +329,9 @@ mod tests {
         let mut lut_3: [u8; 256] = [0; 256];
         for input in 0..=255 {
             //for input in 4..=4 {
-            let mut state: u8 = (input & 0b11000000) >> 6;
+            let mut state: u8 = (input & 0b1100_0000) >> 6;
             let mut result: u8 = 0;
-            let mut h_mask: u8 = 0b00110000;
+            let mut h_mask: u8 = 0b0011_0000;
             for i in 0..3 {
                 let idx = (state << 2) | (input & h_mask) >> (4 - (i * 2));
                 let r = LUT_SH2SXY[idx as usize];
@@ -340,14 +340,14 @@ mod tests {
                 let x = (r & 0b10) >> 1;
                 let y = r & 0b1;
                 // Set state
-                result = (result & 0b00111111) | (state << 6);
-                result = (result & !(0b00100000 >> i)) | (x << (5 - i));
-                result = (result & !(0b00000100 >> i)) | (y << (2 - i));
+                result = (result & 0b0011_1111) | (state << 6);
+                result = (result & !(0b0010_0000 >> i)) | (x << (5 - i));
+                result = (result & !(0b0000_0100 >> i)) | (y << (2 - i));
                 h_mask >>= 2;
             }
             lut_3[input as usize] = result;
         }
-        println!("{:?}", lut_3);
+        println!("{lut_3:?}");
     }
 
     #[test]
@@ -430,6 +430,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::cast_precision_loss, clippy::needless_range_loop)]
     fn draw_hilbert_curve(iteration: u32) -> image::ImageBuffer<image::Rgb<u8>, Vec<u8>> {
         let size: usize = 256;
         let border = 32 / iteration;
@@ -439,10 +440,10 @@ mod tests {
         let mut points: Vec<(u32, u32)> = vec![(0, 0); 2usize.pow(iteration * 2)];
         for i in 0..2usize.pow(iteration * 2) {
             let (mut x, mut y) = h2xy(i as u64, iteration as u8);
-            let step = (size as u32 - border * 2) as f64 / (2usize.pow(iteration) as f64 - 1.0);
-            x = (x as f64 * step) as u32 + border;
-            y = (y as f64 * step) as u32 + border;
-            points[i] = (x, y)
+            let step = f64::from(size as u32 - border * 2) / (2usize.pow(iteration) as f64 - 1.0);
+            x = (f64::from(x) * step) as u32 + border;
+            y = (f64::from(y) * step) as u32 + border;
+            points[i] = (x, y);
         }
 
         let mut prev = (0, 0);
@@ -457,25 +458,21 @@ mod tests {
                 let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.0 += 1;
-                continue;
             }
             while prev.0 > *x {
                 let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.0 -= 1;
-                continue;
             }
             while prev.1 < *y {
                 let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.1 += 1;
-                continue;
             }
             while prev.1 > *y {
                 let pixel = imgbuf.get_pixel_mut(prev.0, prev.1);
                 *pixel = white;
                 prev.1 -= 1;
-                continue;
             }
         }
         imgbuf
@@ -486,7 +483,7 @@ mod tests {
     fn write_image() {
         for i in 1..7 {
             let imgbuf = draw_hilbert_curve(i);
-            imgbuf.save(format!("doc/h{}.png", i)).unwrap();
+            imgbuf.save(format!("doc/h{i}.png")).unwrap();
         }
     }
 }

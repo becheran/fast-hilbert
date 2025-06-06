@@ -2,17 +2,18 @@
 name = "fast_hilbert"
 version = "2.0.1"
 authors = ["Armin <becherarmin@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "Fast Hilbert 2D curve computation using an efficient Lookup Table (LUT)."
 keywords = [ "space-filling-curve", "hilbert", "peano-curves", "mapping", "algorithm" ]
 readme = "README.md"
 license = "MIT"
-categories = ["algorithms"]
+categories = ["algorithms", "science::geo"]
 repository = "https://github.com/becheran/fast-hilbert"
+rust-version = "1.80"
 
 [dev-dependencies]
 image = "0.25.6"
-criterion = "0.5.1"
+criterion = "0.6.0"
 hilbert = "0.1.2"
 hilbert_2d = "1.1.0"
 hilbert_curve = "0.2.0"
@@ -20,3 +21,13 @@ hilbert_curve = "0.2.0"
 [[bench]]
 name = "benchmark"
 harness = false
+
+[lints.rust]
+unsafe_code = "forbid"
+unused_qualifications = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
