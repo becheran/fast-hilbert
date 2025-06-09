@@ -1,6 +1,7 @@
 use core::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 
+#[allow(clippy::too_many_lines)]
 fn criterion_benchmark(c: &mut Criterion) {
     let bits: usize = 8;
     let n: usize = 2usize.pow(bits as u32);
@@ -16,7 +17,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     ));
                 }
             }
-        })
+        });
     });
 
     c.bench_function("hilbert_2d", |b| {
@@ -31,7 +32,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     ));
                 }
             }
-        })
+        });
     });
 
     c.bench_function("hilbert", |b| {
@@ -42,7 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                     black_box(p.hilbert_transform(black_box(bits)));
                 }
             }
-        })
+        });
     });
 
     c.bench_function("fast_hilbert", |b| {
@@ -56,13 +57,13 @@ fn criterion_benchmark(c: &mut Criterion) {
                     ));
                 }
             }
-        })
+        });
     });
 
     let xy_low: (u32, u32) = (1, 2);
     let xy_high: (u32, u32) = (u32::MAX - 1, u32::MAX - 2);
     let order: u8 = 32;
-    let n: usize = 2usize.pow(order as u32);
+    let n: usize = 2usize.pow(u32::from(order));
     c.bench_function("fast_hilbert_low", |b| {
         b.iter(|| {
             black_box(fast_hilbert::xy2h(
@@ -70,7 +71,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(xy_low.1),
                 black_box(order),
             ));
-        })
+        });
     });
     c.bench_function("fast_hilbert_high", |b| {
         b.iter(|| {
@@ -79,7 +80,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(xy_high.1),
                 black_box(order),
             ));
-        })
+        });
     });
     c.bench_function("hilbert_curve_low", |b| {
         b.iter(|| {
@@ -88,7 +89,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 xy_low.1 as usize,
                 n,
             ));
-        })
+        });
     });
     c.bench_function("hilbert_curve_high", |b| {
         b.iter(|| {
@@ -97,7 +98,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 xy_high.1 as usize,
                 n,
             ));
-        })
+        });
     });
     c.bench_function("hilbert_2d_low", |b| {
         b.iter(|| {
@@ -107,7 +108,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 order as usize,
                 hilbert_2d::Variant::Hilbert,
             ));
-        })
+        });
     });
     c.bench_function("hilbert_2d_high", |b| {
         b.iter(|| {
@@ -117,19 +118,19 @@ fn criterion_benchmark(c: &mut Criterion) {
                 order as usize,
                 hilbert_2d::Variant::Hilbert,
             ));
-        })
+        });
     });
     c.bench_function("hilbert_low", |b| {
         b.iter(|| {
             let p = hilbert::Point::new(0, &[xy_low.0, xy_low.1]);
             black_box(p.hilbert_transform(order as usize));
-        })
+        });
     });
     c.bench_function("hilbert_high", |b| {
         b.iter(|| {
             let p = hilbert::Point::new(0, &[xy_high.0, xy_high.1]);
             black_box(p.hilbert_transform(order as usize));
-        })
+        });
     });
 }
 criterion_group!(
