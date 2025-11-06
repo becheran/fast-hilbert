@@ -12,9 +12,8 @@ repository = "https://github.com/becheran/fast-hilbert"
 rust-version = "1.80"
 
 [dev-dependencies]
-image = "0.25.6"
-criterion = "0.6.0"
-hilbert = "0.1.2"
+image = "0.25.8"
+criterion = "0.7.0"
 hilbert_2d = "1.1.0"
 hilbert_curve = "0.2.0"
 
