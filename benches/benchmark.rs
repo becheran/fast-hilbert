@@ -35,17 +35,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("hilbert", |b| {
-        b.iter(|| {
-            for x in 0..n {
-                for y in 0..n {
-                    let p = hilbert::Point::new(0, &[black_box(x as u32), black_box(y as u32)]);
-                    black_box(p.hilbert_transform(black_box(bits)));
-                }
-            }
-        });
-    });
-
     c.bench_function("fast_hilbert", |b| {
         b.iter(|| {
             for x in 0..n {
@@ -118,18 +107,6 @@ fn criterion_benchmark(c: &mut Criterion) {
                 order as usize,
                 hilbert_2d::Variant::Hilbert,
             ));
-        });
-    });
-    c.bench_function("hilbert_low", |b| {
-        b.iter(|| {
-            let p = hilbert::Point::new(0, &[xy_low.0, xy_low.1]);
-            black_box(p.hilbert_transform(order as usize));
-        });
-    });
-    c.bench_function("hilbert_high", |b| {
-        b.iter(|| {
-            let p = hilbert::Point::new(0, &[xy_high.0, xy_high.1]);
-            black_box(p.hilbert_transform(order as usize));
         });
     });
 }
