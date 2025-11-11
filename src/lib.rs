@@ -41,6 +41,23 @@
 
 use core::convert::{From, TryInto};
 use core::ops::{BitAnd, BitOr, BitOrAssign, Shl, ShlAssign, Shr, ShrAssign};
+use bitintr::Pext ;
+
+// #[target_feature(enable = "bmi2")]
+#[inline]
+pub fn h2xy<T: Unsigned>(value: <T as Unsigned>::Key, _order: u8) -> (T, T) {
+    let y = value.pext(T::MASK_ODD).as_half();
+    let x = value.pext(T::MASK_EVEN).as_half();
+    (x,y)
+    // unsafe {
+    //     core::arch::asm! {
+    //         "pext {0}, {1}, {2}",
+    //         out(reg) x,
+    //         in(reg) value,
+    //         in(reg) mask_odd_bits,
+    //         options(pure, nomem, nostack)
+    //     }
+}
 
 pub trait UnsignedBase:
     From<u8>
@@ -88,41 +105,78 @@ macro_rules! base_impl {
     };
 }
 
-base_impl!(u128);
+// base_impl!(u128);
 base_impl!(u64);
 base_impl!(u32);
 base_impl!(u16);
 base_impl!(u8);
 
+pub trait KeyWithHalf: Copy {
+    type Value;
+    fn as_half(self) -> Self::Value;
+}
+
+impl KeyWithHalf for u64 {
+    type Value = u32;
+    #[inline]
+    fn as_half(self) -> Self::Value {
+        self as Self::Value
+    }
+}
+
+impl KeyWithHalf for u32 {
+    type Value = u16;
+    #[inline]
+    fn as_half(self) -> Self::Value {
+        self as Self::Value
+    }
+}
+
+impl KeyWithHalf for u16 {
+    type Value = u8;
+    #[inline]
+    fn as_half(self) -> Self::Value {
+        self as Self::Value
+    }
+}
+
 /// Unsigned integer input type which has a double value type as key
 pub trait Unsigned: UnsignedBase
 where
-    Self::Key: UnsignedBase,
+    Self::Key: UnsignedBase + Pext + KeyWithHalf<Value = Self>,
 {
     type Key; // Double the self unsigned type
     const SEVEN: Self; // Pattern needed for computation
     const SIXTY_THREE: Self::Key; // Pattern needed for computation
+    const MASK_ODD: Self::Key;
+    const MASK_EVEN: Self::Key;
 }
 
-impl Unsigned for u64 {
-    type Key = u128;
-    const SEVEN: Self = 7;
-    const SIXTY_THREE: Self::Key = 63;
-}
+// impl Unsigned for u64 {
+//     type Key = u128;
+//     const SEVEN: Self = 7;
+//     const SIXTY_THREE: Self::Key = 63;
+// }
 impl Unsigned for u32 {
     type Key = u64;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
+    const MASK_ODD: Self::Key = 0xAAAAAAAA_AAAAAAAA; // 101010... pattern
+    const MASK_EVEN: Self::Key = 0x55555555_55555555; // 010101... pattern
 }
 impl Unsigned for u16 {
     type Key = u32;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
+    const MASK_ODD: Self::Key = 0xAAAAAAAA; // 101010... pattern
+    const MASK_EVEN: Self::Key = 0x55555555; // 010101... pattern
 }
 impl Unsigned for u8 {
     type Key = u16;
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
+    const MASK_ODD: Self::Key = 0xAAAA; // 101010... pattern
+    const MASK_EVEN: Self::Key = 0x5555; // 010101... pattern
 }
 
 /// Convert form 2D to 1D hilbert space.
@@ -210,7 +264,7 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
 /// assert_eq!(x, 1u64);
 /// assert_eq!(y, 0u64);
 ///```
-pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
+pub fn h2xy_old<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
     // Mapping from hilbert states to 2D coordinates
     // SHHH => SXXXYYY
     //   8 bit => 8 bit
@@ -375,26 +429,18 @@ mod tests {
     #[test]
     fn h2xy_one_bit() {
         let h2xy = h2xy::<u8>;
-        let (x0, y0) = h2xy(0, 1);
-        let (x1, y1) = h2xy(1, 1);
-        let (x2, y2) = h2xy(2, 1);
-        let (x3, y3) = h2xy(3, 1);
-        assert_eq!((x0, y0), (0, 0));
-        assert_eq!((x1, y1), (0, 1));
-        assert_eq!((x2, y2), (1, 1));
-        assert_eq!((x3, y3), (1, 0));
+        assert_eq!(h2xy(0, 1), (0, 0));
+        assert_eq!(h2xy(1, 1), (0, 1));
+        assert_eq!(h2xy(2, 1), (1, 1));
+        assert_eq!(h2xy(3, 1), (1, 0));
     }
 
     #[test]
     fn xy2h_one_bit() {
-        let d0 = xy2h(0u64, 0, 1);
-        let d1 = xy2h(0u64, 1, 1);
-        let d2 = xy2h(1u64, 0, 1);
-        let d3 = xy2h(1u64, 1, 1);
-        assert_eq!(d0, 0);
-        assert_eq!(d1, 1);
-        assert_eq!(d2, 3);
-        assert_eq!(d3, 2);
+        assert_eq!(xy2h(0u32, 0, 1), 0);
+        assert_eq!(xy2h(0u32, 1, 1), 1);
+        assert_eq!(xy2h(1u32, 0, 1), 3);
+        assert_eq!(xy2h(1u32, 1, 1), 2);
     }
 
     #[test]

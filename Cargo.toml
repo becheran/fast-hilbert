@@ -11,6 +11,9 @@ categories = ["algorithms", "science::geo"]
 repository = "https://github.com/becheran/fast-hilbert"
 rust-version = "1.80"
 
+[dependencies]
+bitintr = "0.3.0"
+
 [dev-dependencies]
 image = "0.25.8"
 criterion = "0.7.0"
