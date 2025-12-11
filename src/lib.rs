@@ -178,10 +178,7 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
 /// let moore = fast_hilbert::xy2h_moore(1u32, 0u32, 1);
 /// assert_eq!(moore, 3u64);
 ///```
-pub fn xy2h_moore<T: Unsigned>(x: T, y: T, order: u8) -> T::Key
-where
-    <T as Unsigned>::Key: From<T>,
-{
+pub fn xy2h_moore<T: Unsigned>(x: T, y: T, order: u8) -> T::Key {
     const LUT_3: [u8; 256] = [
         191, 62, 241, 176, 47, 236, 171, 42, 124, 61, 242, 115, 174, 173, 104, 41, 59, 248, 55,
         244, 97, 98, 167, 38, 186, 185, 182, 181, 32, 227, 100, 37, 69, 70, 73, 74, 31, 220, 155,
@@ -204,7 +201,7 @@ where
         order = T::BITS - 1;
     }
     let order_minus_one = order - 1;
-    let xy = (x >> order_minus_one as usize) << 1_usize | (y >> order_minus_one as usize);
+    let xy = (x >> order_minus_one as usize) << 1 as usize | (y >> order_minus_one as usize);
     let (h0, init_state) = if xy == T::ZERO {
         (T::Key::ZERO, 1)
     } else if xy == T::ONE {
