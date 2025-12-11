@@ -16,6 +16,7 @@ Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and on
 ![h6](./doc/h6.png)
 
 * Convert from discrete 2D space to 1D hilbert space and reverse
+* Support for Moore curve variant (closed-loop version of the Hilbert curve)
 * Generalized for different unsigned integer input types (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#3](https://github.com/becheran/fast-hilbert/pull/3))
 * Speedup via lowest order computation (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#2](https://github.com/becheran/fast-hilbert/pull/2))
 * Very fast using an efficient 512 Byte *LUT*
@@ -25,7 +26,7 @@ Benchmarking the conversion from full 256x256 discrete 2D space to the 1D hilber
 
 | Library                                                | Time        | Description       |
  ------------------------------------------------------- |------------:| ----------------- |
-| **fast_hilbert**                                       |  **0.7 ms** | Optimized for fast computation in 2D discrete space using an efficient *LUT*
+| **fast_hilbert**                                       |  **0.7 ms** | Optimized for fast computation in 2D discrete space using an efficient *LUT*. Supports Hilbert and Moore curves.
 | [hilbert_2d](https://crates.io/crates/hilbert_2d)      |  2.5 ms     | Also allows other variants such as *Moore* and *LIU* |
 | [hilbert_curve](https://crates.io/crates/hilbert_curve)|   2.0 ms    | Implements algorithm described on [Wikipedia](https://en.wikipedia.org/wiki/Hilbert_curve) |
 | [hilbert](https://crates.io/crates/hilbert)            |  32.1 ms    | Allows computation of higher dimensional Hilbert curves |
