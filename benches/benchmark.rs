@@ -43,7 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                         black_box(x as u32),
                         black_box(y as u32),
                         black_box(bits as u8),
-                    ));
+                    ).unwrap());
                 }
             }
         });
@@ -59,7 +59,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(xy_low.0),
                 black_box(xy_low.1),
                 black_box(order),
-            ));
+            ).unwrap());
         });
     });
     c.bench_function("fast_hilbert_high", |b| {
@@ -68,7 +68,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 black_box(xy_high.0),
                 black_box(xy_high.1),
                 black_box(order),
-            ));
+            ).unwrap());
         });
     });
     c.bench_function("hilbert_curve_low", |b| {
