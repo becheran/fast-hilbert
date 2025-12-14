@@ -125,6 +125,14 @@ impl Unsigned for u8 {
     const SIXTY_THREE: Self::Key = 63;
 }
 
+/// Validates that the order parameter is within reasonable bounds.
+/// The order should not exceed twice the bit size of the coordinate type.
+#[inline]
+fn validate_order<T: UnsignedBase>(order: u8) -> bool {
+    let coor_bits = (size_of::<T>() << 3) as u8;
+    order <= coor_bits * 2
+}
+
 /// Convert form 2D to 1D hilbert space.
 /// Input type `T` must have half the capacity of the result type. For example (u32, u32) => u64.
 ///
@@ -160,14 +168,12 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> Option<<T as Unsigned>::Key> 
         200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
 
-    let coor_bits = (size_of::<T>() << 3) as u8;
-    
     // Validate that order is within reasonable bounds
-    // The order should not exceed twice the bit size of the coordinate type
-    if order > coor_bits * 2 {
+    if !validate_order::<T>(order) {
         return None;
     }
 
+    let coor_bits = (size_of::<T>() << 3) as u8;
     let useless_bits = (x | y).leading_zeros() as u8 & !1;
     let lowest_order = coor_bits.saturating_sub(useless_bits).saturating_add(order & 1);
 
@@ -240,14 +246,13 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> Option<(T, T)> {
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
-    let coor_bits = (size_of::<T>() << 3) as u8;
     
     // Validate that order is within reasonable bounds
-    // The order should not exceed twice the bit size of the coordinate type
-    if order > coor_bits * 2 {
+    if !validate_order::<T>(order) {
         return None;
     }
     
+    let coor_bits = (size_of::<T>() << 3) as u8;
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
     let lowest_order = coor_bits.saturating_sub(useless_bits).saturating_add(order & 1);
 
