@@ -40,7 +40,8 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::convert::{From, TryInto};
-use core::ops::{BitAnd, BitOr, BitOrAssign, Shl, ShlAssign, Shr, ShrAssign};
+use core::fmt::Debug;
+use core::ops::{BitAnd, BitOr, BitOrAssign, Not, Shl, ShlAssign, Shr, ShrAssign, Sub};
 
 pub trait UnsignedBase:
     From<u8>
@@ -55,7 +56,9 @@ pub trait UnsignedBase:
     + Shr<usize, Output = Self>
     + ShrAssign
     + ShlAssign
-    + BitOrAssign
+    + Sub<Self, Output = Self>
+    + Not<Output = Self>
+    + PartialOrd
 {
     fn leading_zeros(self) -> u32;
     // Save since will only be used for usize <= 8 bit for LUT lookup
@@ -95,7 +98,7 @@ base_impl!(u16);
 base_impl!(u8);
 
 /// Unsigned integer input type which has a double value type as key
-pub trait Unsigned: UnsignedBase
+pub trait Unsigned: UnsignedBase + Into<Self::Key> + Debug
 where
     Self::Key: UnsignedBase,
 {
@@ -125,8 +128,49 @@ impl Unsigned for u8 {
     const SIXTY_THREE: Self::Key = 63;
 }
 
+/// The main error type for this crate
+#[derive(Debug, PartialEq, Eq)]
+pub enum OrderError<T: Unsigned> {
+    /// The given order did not fit into the type
+    InvalidOrder {
+        order: u8,
+        the_type: &'static str,
+        coor_bits: u8,
+    },
+    /// The given coordinates did not fit into the given order
+    OrderExceeded {
+        order: u8,
+        max_allowed_index: T::Key,
+        given_index: T::Key,
+    },
+}
+impl<T: Unsigned> core::fmt::Display for OrderError<T>
+where
+    T::Key: Unsigned,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            OrderError::InvalidOrder {
+                order,
+                the_type,
+                coor_bits,
+            } => write!(
+                f,
+                "order {} too large for {} coordinates. Should not exceed {}",
+                order,
+                the_type,
+                coor_bits
+            ),
+            OrderError::OrderExceeded { order, max_allowed_index, given_index } => write!(f, "order {order} can at most index to {max_allowed_index:?}, which {given_index:?} exceeds"),
+        }
+    }
+}
+impl<T: Unsigned + Debug> core::error::Error for OrderError<T> where T::Key: Unsigned {}
+
 /// Convert form 2D to 1D hilbert space.
 /// Input type `T` must have half the capacity of the result type. For example (u32, u32) => u64.
+///
+/// Errors if the order does not fit into the coordinate type, or the given coordinates don't fit in the order
 ///
 /// # Arguments
 /// * `x` - Coordinate in 2D space
@@ -135,10 +179,10 @@ impl Unsigned for u8 {
 ///
 /// # Examples
 ///```
-/// let hilbert = fast_hilbert::xy2h(1u64, 0, 1);
+/// let hilbert = fast_hilbert::xy2h(1u64, 0, 1).unwrap();
 /// assert_eq!(hilbert, 0b11u128);
 ///```
-pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
+pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> Result<<T as Unsigned>::Key, OrderError<T>> {
     // Mapping from State and coordinates to hilbert states
     // SXXXYYY => SHHH
     //   8 bit => 8 bit
@@ -158,9 +202,40 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
         200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
 
-    let coor_bits = (size_of::<T>() << 3) as u32;
-    let useless_bits = (x | y).leading_zeros() & !1;
-    let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
+    let coor_bits = (size_of::<T>() << 3) as u8;
+    let useless_bits = (x | y).leading_zeros() as u8 & !1;
+    let lowest_order = coor_bits - useless_bits + (order & 1);
+
+    // possible coordinates/index:
+    // h in [0,1<<2*order)
+    // (x,y) in [0,1<<order)
+    // therefore, order must <= size_of::<T>
+    if order > coor_bits {
+        return Err(OrderError::InvalidOrder {
+            order,
+            the_type: core::any::type_name::<T>(),
+            coor_bits,
+        });
+    }
+    // if we have the maximum number of bits in the key,
+    // e.g. order 8 where T = u8,
+    // then the maximum value for h is 4.pow(8) = (1<<16)-1
+    // but 1<<coor_bits breaks for T, so we use T::Key
+    let max_coord = (T::Key::from(1) << usize::from(order)) - 1.into();
+    if x.into() > max_coord {
+        return Err(OrderError::OrderExceeded {
+            order,
+            max_allowed_index: max_coord,
+            given_index: x.into(),
+        });
+    }
+    if y.into() > max_coord {
+        return Err(OrderError::OrderExceeded {
+            order,
+            max_allowed_index: max_coord,
+            given_index: y.into(),
+        });
+    }
 
     let mut result: T::Key = T::Key::ZERO;
     let mut state = 0u8;
@@ -193,12 +268,14 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
     let mut hhh: T::Key = r & T::SIXTY_THREE;
     hhh >>= ((shift_factor as u8) << 1).into();
 
-    result | hhh
+    Ok(result | hhh)
 }
 
 /// Convert form 1D hilbert space to 2D coordinates
 ///
 /// Input type `T` must have double the capacity of the result types. For example u64 => (u32, u32).
+///
+/// Errors if the order does not fit into the coordinate type, or the given coordinates don't fit in the order
 ///
 /// # Arguments
 /// * `h`     - Coordinate in 1D hilbert space
@@ -206,11 +283,11 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
 ///
 /// # Examples
 ///```
-/// let (x, y) = fast_hilbert::h2xy::<u64>(0b11u128, 1);
+/// let (x, y) = fast_hilbert::h2xy::<u64>(0b11u128, 1).unwrap();
 /// assert_eq!(x, 1u64);
 /// assert_eq!(y, 0u64);
 ///```
-pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
+pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> Result<(T, T), OrderError<T>> {
     // Mapping from hilbert states to 2D coordinates
     // SHHH => SXXXYYY
     //   8 bit => 8 bit
@@ -229,9 +306,54 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
+
     let coor_bits = (size_of::<T>() << 3) as u8;
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
     let lowest_order = coor_bits - useless_bits + (order & 1);
+
+    // possible coordinates/index:
+    // h in [0,1<<2*order)
+    // (x,y) in [0,1<<order)
+    // therefore, order must <= size_of::<T>
+    if order > coor_bits {
+        return Err(OrderError::InvalidOrder {
+            order,
+            the_type: core::any::type_name::<T>(),
+            coor_bits,
+        });
+    }
+    // if we have the maximum number of bits in the key,
+    // e.g. order 8 where T = u8,
+    // then the maximum value for h is 4.pow(8) = (1<<16)-1
+    // but that breaks maths on T::Key = u16// possible coordinates/index:
+    // h in [0,1<<2*order)
+    // (x,y) in [0,1<<order)
+    // therefore, order must <= size_of::<T>
+    if order > coor_bits {
+        return Err(OrderError::InvalidOrder {
+            order,
+            the_type: core::any::type_name::<T>(),
+            coor_bits,
+        });
+    }
+    // if we have the maximum number of bits in the key,
+    // e.g. order 8 where T = u8,
+    // then the maximum value for h is 4.pow(8) = (1<<16)-1
+    // but that breaks maths on T::Key = u16
+    // so we special-case the maximum
+    let max_coord = if order == coor_bits {
+        !T::Key::ZERO
+    } else {
+        (T::Key::from(1) << usize::from(order * 2)) - 1.into()
+    };
+
+    if h > max_coord {
+        return Err(OrderError::OrderExceeded {
+            order,
+            max_allowed_index: max_coord,
+            given_index: h,
+        });
+    }
 
     let mut x_result: T = T::ZERO;
     let mut y_result: T = x_result;
@@ -276,7 +398,7 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
     x_result = xxx >> shift_factor | x_result;
     y_result = yyy >> shift_factor | y_result;
 
-    (x_result, y_result)
+    Ok((x_result, y_result))
 }
 
 #[cfg(test)]
@@ -355,8 +477,8 @@ mod tests {
         let order = 4;
         let max = 2usize.pow(order * 2);
         for h in 0..max {
-            let (x, y): (u32, u32) = h2xy(h as u64, order as u8);
-            let res_h = xy2h(x, y, order as u8);
+            let (x, y): (u32, u32) = h2xy(h as u64, order as u8).unwrap();
+            let res_h = xy2h(x, y, order as u8).unwrap();
             assert_eq!(h as u64, res_h);
         }
     }
@@ -366,8 +488,8 @@ mod tests {
         let order = 8;
         let max = 2usize.pow(order * 2);
         for h in 0..max {
-            let (x, y): (u8, u8) = h2xy(h as u16, order as u8);
-            let res_h = xy2h(x, y, order as u8);
+            let (x, y): (u8, u8) = h2xy(h as u16, order as u8).unwrap();
+            let res_h = xy2h(x, y, order as u8).unwrap();
             assert_eq!(h as u16, res_h);
         }
     }
@@ -375,10 +497,10 @@ mod tests {
     #[test]
     fn h2xy_one_bit() {
         let h2xy = h2xy::<u8>;
-        let (x0, y0) = h2xy(0, 1);
-        let (x1, y1) = h2xy(1, 1);
-        let (x2, y2) = h2xy(2, 1);
-        let (x3, y3) = h2xy(3, 1);
+        let (x0, y0) = h2xy(0, 1).unwrap();
+        let (x1, y1) = h2xy(1, 1).unwrap();
+        let (x2, y2) = h2xy(2, 1).unwrap();
+        let (x3, y3) = h2xy(3, 1).unwrap();
         assert_eq!((x0, y0), (0, 0));
         assert_eq!((x1, y1), (0, 1));
         assert_eq!((x2, y2), (1, 1));
@@ -387,10 +509,10 @@ mod tests {
 
     #[test]
     fn xy2h_one_bit() {
-        let d0 = xy2h(0u64, 0, 1);
-        let d1 = xy2h(0u64, 1, 1);
-        let d2 = xy2h(1u64, 0, 1);
-        let d3 = xy2h(1u64, 1, 1);
+        let d0 = xy2h(0u64, 0, 1).unwrap();
+        let d1 = xy2h(0u64, 1, 1).unwrap();
+        let d2 = xy2h(1u64, 0, 1).unwrap();
+        let d3 = xy2h(1u64, 1, 1).unwrap();
         assert_eq!(d0, 0);
         assert_eq!(d1, 1);
         assert_eq!(d2, 3);
@@ -401,8 +523,8 @@ mod tests {
     fn h2xy_two_bits() {
         let h2xy = h2xy::<u32>;
         for h in 0..8 {
-            let (rx, ry) = h2xy(h as u64, 2);
-            let h_cmp = xy2h(rx, ry, 2);
+            let (rx, ry) = h2xy(h as u64, 2).unwrap();
+            let h_cmp = xy2h(rx, ry, 2).unwrap();
             assert_eq!(h, h_cmp as usize);
         }
     }
@@ -412,7 +534,7 @@ mod tests {
         for x in 0..4 {
             for y in 0..4 {
                 let d = hilbert_curve::convert_2d_to_1d(x, y, 4);
-                let df = xy2h(x as u32, y as u32, 2);
+                let df = xy2h(x as u32, y as u32, 2).unwrap();
                 assert_eq!(d as u64, df);
             }
         }
@@ -425,7 +547,7 @@ mod tests {
             let numbers = 2usize.pow(bits);
             for d in (0..(numbers * numbers)).step_by(numbers) {
                 let (x, y) = hilbert_curve::convert_1d_to_2d(d, numbers);
-                assert_eq!(xy2h(x as u32, y as u32, bits as u8), d as u64);
+                assert_eq!(xy2h(x as u32, y as u32, bits as u8).unwrap(), d as u64);
             }
         }
     }
@@ -439,7 +561,7 @@ mod tests {
 
         let mut points: Vec<(u32, u32)> = vec![(0, 0); 2usize.pow(iteration * 2)];
         for i in 0..2usize.pow(iteration * 2) {
-            let (mut x, mut y) = h2xy(i as u64, iteration as u8);
+            let (mut x, mut y) = h2xy(i as u64, iteration as u8).unwrap();
             let step = f64::from(size as u32 - border * 2) / (2usize.pow(iteration) as f64 - 1.0);
             x = (f64::from(x) * step) as u32 + border;
             y = (f64::from(y) * step) as u32 + border;
@@ -485,5 +607,164 @@ mod tests {
             let imgbuf = draw_hilbert_curve(i);
             imgbuf.save(format!("doc/h{i}.png")).unwrap();
         }
+    }
+
+    #[test]
+    fn test_compute_lowest_order_doesnt_panic() {
+        let coor_bits = (size_of::<u8>() << 3) as u8; // 8
+        for x in 0..=255u8 {
+            for y in 0..=255u8 {
+                for order in 0..=255 {
+                    let useless_bits = (x | y).leading_zeros() as u8 & !1;
+                    coor_bits - useless_bits + (order & 1);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_error_display() {
+        assert_eq!(
+            &OrderError::InvalidOrder::<u8> {
+                order: 9,
+                the_type: "u8",
+                coor_bits: 8
+            }
+            .to_string(),
+            "order 9 too large for u8 coordinates. Should not exceed 8"
+        );
+        assert_eq!(
+            &OrderError::OrderExceeded::<u8> {
+                order: 1,
+                max_allowed_index: 3,
+                given_index: 4
+            }
+            .to_string(),
+            "order 1 can at most index to 3, which 4 exceeds"
+        );
+    }
+
+    #[test]
+    fn test_invalid_order_xy2h() {
+        // Test that invalid order returns the appropriate error
+        // For u8 coordinates, order should not exceed 16 (8 bits * 2)
+        assert_eq!(xy2h(5u8, 10u8, 8), Ok(119));
+        assert_eq!(
+            xy2h(5u8, 10u8, 9).unwrap_err(),
+            OrderError::InvalidOrder {
+                order: 9,
+                the_type: &"u8",
+                coor_bits: 8
+            }
+        );
+        assert_eq!(
+            xy2h(5u8, 10u8, 255).unwrap_err(),
+            OrderError::InvalidOrder {
+                order: 255,
+                the_type: &"u8",
+                coor_bits: 8
+            }
+        );
+
+        // For u32 coordinates, order should not exceed 64 (32 bits * 2)
+        assert!(xy2h(100u32, 200u32, 32).is_ok());
+        assert_eq!(
+            xy2h(100u32, 200u32, 33).unwrap_err(),
+            OrderError::InvalidOrder {
+                order: 33,
+                the_type: &"u32",
+                coor_bits: 32
+            }
+        );
+    }
+
+    #[test]
+    fn test_invalid_order_h2xy() {
+        // Test that invalid order returns the appropriate error
+        // For u8 coordinates, order should not exceed 16 (8 bits * 2)
+        assert_eq!(h2xy::<u8>(100u16, 8).unwrap(), (4, 14));
+        assert_eq!(
+            h2xy::<u8>(100u16, 9).unwrap_err(),
+            OrderError::InvalidOrder {
+                order: 9,
+                the_type: &"u8",
+                coor_bits: 8
+            }
+        );
+        assert_eq!(
+            h2xy::<u8>(100u16, 255).unwrap_err(),
+            OrderError::InvalidOrder {
+                order: 255,
+                the_type: &"u8",
+                coor_bits: 8
+            }
+        );
+
+        // For u32 coordinates, order should not exceed 64 (32 bits * 2)
+        assert_eq!(h2xy::<u32>(1000u64, 32).unwrap(), (6, 30));
+        assert_eq!(
+            h2xy::<u32>(1000u64, 33).unwrap_err(),
+            OrderError::InvalidOrder {
+                order: 33,
+                the_type: &"u32",
+                coor_bits: 32
+            }
+        );
+    }
+
+    #[test]
+    fn test_exceeds_order() {
+        // a 1-order hilbert curve has 4 points, spanning [0,1]x[0,1]-space
+        assert_eq!(h2xy::<u64>(3, 1).unwrap(), (1, 0));
+        // therefore, when 0-indexed, 4 should return an error.
+        // in stead, it returns (2,0) which is not inside the space.
+        // I think it secretly upgraded the hilbert order
+        assert_eq!(
+            h2xy::<u64>(4, 1),
+            Err(OrderError::OrderExceeded {
+                order: 1,
+                max_allowed_index: 3,
+                given_index: 4
+            })
+        );
+
+        assert_eq!(xy2h::<u64>(1, 1, 1).unwrap(), 2);
+        assert_eq!(
+            xy2h::<u64>(1, 2, 1).unwrap_err(),
+            OrderError::OrderExceeded {
+                order: 1,
+                max_allowed_index: 1,
+                given_index: 2
+            }
+        );
+        assert_eq!(
+            xy2h::<u64>(2, 1, 1).unwrap_err(),
+            OrderError::OrderExceeded {
+                order: 1,
+                max_allowed_index: 1,
+                given_index: 2
+            }
+        );
+    }
+
+    #[test]
+    fn test_edge_cases() {
+        // Test with maximum values
+        assert_eq!(
+            xy2h(u64::MAX, u64::MAX, 64),
+            Ok(226854911280625642308916404954512140970)
+        );
+        assert_eq!(
+            h2xy::<u64>(u128::MAX, 64).unwrap(),
+            (18446744073709551615, 0)
+        );
+
+        // Test with zero values
+        assert_eq!(xy2h(0u32, 0u32, 0).unwrap(), 0);
+        assert_eq!(h2xy::<u32>(0u64, 0).unwrap(), (0, 0));
+
+        // Test that we handle untrusted data gracefully
+        assert!(xy2h(u32::MAX, u32::MAX, u8::MAX).is_err());
+        assert!(h2xy::<u32>(u64::MAX, u8::MAX).is_err());
     }
 }
