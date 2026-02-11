@@ -39,8 +39,21 @@ fn criterion_benchmark(c: &mut Criterion) {
         b.iter(|| {
             for x in 0..n {
                 for y in 0..n {
+                    black_box(fast_hilbert::xy2h(
+                        black_box(x as u32),
+                        black_box(y as u32),
+                        black_box(bits as u8),
+                    ));
+                }
+            }
+        });
+    });
+    c.bench_function("fast_hilbert_checked", |b| {
+        b.iter(|| {
+            for x in 0..n {
+                for y in 0..n {
                     black_box(
-                        fast_hilbert::xy2h(
+                        fast_hilbert::xy2h_checked(
                             black_box(x as u32),
                             black_box(y as u32),
                             black_box(bits as u8),
@@ -58,17 +71,43 @@ fn criterion_benchmark(c: &mut Criterion) {
     let n: usize = 2usize.pow(u32::from(order));
     c.bench_function("fast_hilbert_low", |b| {
         b.iter(|| {
+            black_box(fast_hilbert::xy2h(
+                black_box(xy_low.0),
+                black_box(xy_low.1),
+                black_box(order),
+            ));
+        });
+    });
+    c.bench_function("fast_hilbert_low_checked", |b| {
+        b.iter(|| {
             black_box(
-                fast_hilbert::xy2h(black_box(xy_low.0), black_box(xy_low.1), black_box(order))
-                    .unwrap(),
+                fast_hilbert::xy2h_checked(
+                    black_box(xy_low.0),
+                    black_box(xy_low.1),
+                    black_box(order),
+                )
+                .unwrap(),
             );
         });
     });
     c.bench_function("fast_hilbert_high", |b| {
         b.iter(|| {
+            black_box(fast_hilbert::xy2h(
+                black_box(xy_high.0),
+                black_box(xy_high.1),
+                black_box(order),
+            ));
+        });
+    });
+    c.bench_function("fast_hilbert_high_checked", |b| {
+        b.iter(|| {
             black_box(
-                fast_hilbert::xy2h(black_box(xy_high.0), black_box(xy_high.1), black_box(order))
-                    .unwrap(),
+                fast_hilbert::xy2h_checked(
+                    black_box(xy_high.0),
+                    black_box(xy_high.1),
+                    black_box(order),
+                )
+                .unwrap(),
             );
         });
     });
