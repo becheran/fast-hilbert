@@ -154,10 +154,10 @@ impl<T: Unsigned> core::fmt::Display for OrderError<T> {
                 coor_bits,
             } => write!(
                 f,
-                "order {} too large for {} coordinates. Should not exceed {}",
-                order,
+                "Type {} can at most support order {}, which {} exceeds",
                 the_type,
-                coor_bits
+                coor_bits,
+                order,
             ),
             OrderError::OrderExceeded { order, max_allowed_index, given_index } => write!(f, "order {order} can at most index to {max_allowed_index:?}, which {given_index:?} exceeds"),
         }
@@ -616,7 +616,7 @@ mod tests {
                 coor_bits: 8
             }
             .to_string(),
-            "order 9 too large for u8 coordinates. Should not exceed 8"
+            "Type u8 can at most support order 8, which 9 exceeds"
         );
         assert_eq!(
             &OrderError::OrderExceeded::<u8> {
