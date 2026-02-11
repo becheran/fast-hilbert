@@ -44,7 +44,7 @@ use core::fmt::Debug;
 use core::ops::{BitAnd, BitOr, BitOrAssign, Not, Shl, ShlAssign, Shr, ShrAssign, Sub};
 
 mod checked;
-pub use checked::{h2xy_checked, max_coord, max_index, xy2h_checked, OrderError};
+pub use checked::{h2xy_checked, max_coord, max_index, max_order, xy2h_checked, OrderError};
 pub trait UnsignedBase:
     From<u8>
     + Copy

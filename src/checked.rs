@@ -1,4 +1,5 @@
 use crate::{h2xy, xy2h, Unsigned, UnsignedBase};
+use core::cmp::Ordering;
 
 /// The main error type for this crate
 #[derive(Debug, PartialEq, Eq)]
@@ -7,7 +8,7 @@ pub enum OrderError<T: Unsigned> {
     InvalidOrder {
         order: u8,
         the_type: &'static str,
-        coor_bits: u8,
+        max_order: u8,
     },
     /// The given coordinates did not fit into the given order
     OrderExceeded {
@@ -23,12 +24,12 @@ impl<T: Unsigned> core::fmt::Display for OrderError<T> {
             OrderError::InvalidOrder {
                 order,
                 the_type,
-                coor_bits,
+                max_order,
             } => write!(
                 f,
                 "Type {} can at most support order {}, which {} exceeds",
                 the_type,
-                coor_bits,
+                max_order,
                 order,
             ),
             OrderError::OrderExceeded { order, max_allowed_index, given_index } => write!(f, "order {order} can at most index to {max_allowed_index:?}, which {given_index:?} exceeds"),
@@ -36,6 +37,12 @@ impl<T: Unsigned> core::fmt::Display for OrderError<T> {
     }
 }
 impl<T: Unsigned> core::error::Error for OrderError<T> {}
+
+/// The maximum allowed order for a given type. This is the number of bits in the type.
+#[inline]
+pub fn max_order<T: Unsigned>() -> u8 {
+    (size_of::<T>() << 3) as u8
+}
 
 /// The maximum allowed `x` or `y` coordinate for a given hilbert order
 ///
@@ -47,24 +54,25 @@ impl<T: Unsigned> core::error::Error for OrderError<T> {}
 /// assert_eq!(max_coord::<u8>(8).unwrap(),255);
 /// assert!(max_coord::<u8>(9).is_err())
 /// ```
-pub fn max_coord<T: Unsigned>(order: u8) -> Result<T::Key, OrderError<T>> {
-    let coor_bits = (size_of::<T>() << 3) as u8;
+#[inline]
+pub fn max_coord<T: Unsigned>(order: u8) -> Result<T, OrderError<T>> {
+    let max_order = max_order::<T>();
     // possible coordinates/index:
     // h in [0,1<<2*order)
     // (x,y) in [0,1<<order)
     // therefore, order must <= size_of::<T>
-    if order > coor_bits {
-        Err(OrderError::InvalidOrder {
+    match order.cmp(&max_order) {
+        Ordering::Greater => Err(OrderError::InvalidOrder {
             order,
             the_type: core::any::type_name::<T>(),
-            coor_bits,
-        })
-    } else {
-        // if we have the maximum number of bits in the key,
+            max_order,
+        }), // if we have the maximum number of bits in the key,
         // e.g. order 8 where T = u8,
-        // then the maximum value for h is 4.pow(8) = (1<<16)-1
-        // but 1<<coor_bits breaks for T, so we use T::Key
-        Ok((T::Key::from(1) << usize::from(order)) - 1.into())
+        // then the maximum value for h is 2.pow(8) = (1<<8)-1
+        // but that breaks maths on T = u8
+        // so we special-case equal
+        Ordering::Equal => Ok(!T::ZERO),
+        Ordering::Less => Ok((T::from(1) << usize::from(order)) - 1.into()),
     }
 }
 
@@ -78,29 +86,26 @@ pub fn max_coord<T: Unsigned>(order: u8) -> Result<T::Key, OrderError<T>> {
 /// assert_eq!(max_index::<u8>(8).unwrap(),u16::MAX);
 /// assert!(max_index::<u8>(9).is_err())
 /// ```
+#[inline]
 pub fn max_index<T: Unsigned>(order: u8) -> Result<T::Key, OrderError<T>> {
-    let coor_bits = (size_of::<T>() << 3) as u8;
+    let max_order = max_order::<T>();
     // possible coordinates/index:
     // h in [0,1<<2*order)
     // (x,y) in [0,1<<order)
     // therefore, order must <= size_of::<T>
-    if order > coor_bits {
-        return Err(OrderError::InvalidOrder {
+    match order.cmp(&max_order) {
+        Ordering::Greater => Err(OrderError::InvalidOrder {
             order,
             the_type: core::any::type_name::<T>(),
-            coor_bits,
-        });
-    } else {
+            max_order,
+        }),
         // if we have the maximum number of bits in the key,
         // e.g. order 8 where T = u8,
         // then the maximum value for h is 4.pow(8) = (1<<16)-1
         // but that breaks maths on T::Key = u16
-        // so we special-case the maximum
-        Ok(if order == coor_bits {
-            !T::Key::ZERO
-        } else {
-            (T::Key::from(1) << usize::from(order * 2)) - 1.into()
-        })
+        // so we special-case equal
+        Ordering::Equal => Ok(!T::Key::ZERO),
+        Ordering::Less => Ok((T::Key::from(1) << usize::from(order * 2)) - 1.into()),
     }
 }
 
@@ -123,10 +128,10 @@ pub fn xy2h_checked<T: Unsigned>(
     order: u8,
 ) -> Result<<T as Unsigned>::Key, OrderError<T>> {
     let max_coord = max_coord(order)?;
-    if (x | y).into() > max_coord {
+    if (x | y).into() > max_coord.into() {
         Err(OrderError::OrderExceeded {
             order,
-            max_allowed_index: max_coord,
+            max_allowed_index: max_coord.into(),
             given_index: x.max(y).into(),
         })
     } else {
@@ -170,7 +175,7 @@ mod tests {
             &OrderError::InvalidOrder::<u8> {
                 order: 9,
                 the_type: "u8",
-                coor_bits: 8
+                max_order: 8
             }
             .to_string(),
             "Type u8 can at most support order 8, which 9 exceeds"
@@ -196,7 +201,7 @@ mod tests {
             OrderError::InvalidOrder {
                 order: 9,
                 the_type: &"u8",
-                coor_bits: 8
+                max_order: 8
             }
         );
         assert_eq!(
@@ -204,7 +209,7 @@ mod tests {
             OrderError::InvalidOrder {
                 order: 255,
                 the_type: &"u8",
-                coor_bits: 8
+                max_order: 8
             }
         );
 
@@ -215,7 +220,7 @@ mod tests {
             OrderError::InvalidOrder {
                 order: 33,
                 the_type: &"u32",
-                coor_bits: 32
+                max_order: 32
             }
         );
     }
@@ -230,7 +235,7 @@ mod tests {
             OrderError::InvalidOrder {
                 order: 9,
                 the_type: &"u8",
-                coor_bits: 8
+                max_order: 8
             }
         );
         assert_eq!(
@@ -238,7 +243,7 @@ mod tests {
             OrderError::InvalidOrder {
                 order: 255,
                 the_type: &"u8",
-                coor_bits: 8
+                max_order: 8
             }
         );
 
@@ -249,7 +254,7 @@ mod tests {
             OrderError::InvalidOrder {
                 order: 33,
                 the_type: &"u32",
-                coor_bits: 32
+                max_order: 32
             }
         );
     }
