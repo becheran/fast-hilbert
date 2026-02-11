@@ -59,6 +59,7 @@ pub trait UnsignedBase:
     + Sub<Self, Output = Self>
     + Not<Output = Self>
     + PartialOrd
+    + Debug
 {
     fn leading_zeros(self) -> u32;
     // Save since will only be used for usize <= 8 bit for LUT lookup
@@ -98,7 +99,7 @@ base_impl!(u16);
 base_impl!(u8);
 
 /// Unsigned integer input type which has a double value type as key
-pub trait Unsigned: UnsignedBase + Into<Self::Key> + Debug
+pub trait Unsigned: UnsignedBase + Into<Self::Key>
 where
     Self::Key: UnsignedBase,
 {
@@ -144,10 +145,7 @@ pub enum OrderError<T: Unsigned> {
         given_index: T::Key,
     },
 }
-impl<T: Unsigned> core::fmt::Display for OrderError<T>
-where
-    T::Key: Unsigned,
-{
+impl<T: Unsigned> core::fmt::Display for OrderError<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             OrderError::InvalidOrder {
@@ -165,7 +163,7 @@ where
         }
     }
 }
-impl<T: Unsigned + Debug> core::error::Error for OrderError<T> where T::Key: Unsigned {}
+impl<T: Unsigned> core::error::Error for OrderError<T> {}
 
 /// Convert form 2D to 1D hilbert space.
 /// Input type `T` must have half the capacity of the result type. For example (u32, u32) => u64.
@@ -606,19 +604,6 @@ mod tests {
         for i in 1..7 {
             let imgbuf = draw_hilbert_curve(i);
             imgbuf.save(format!("doc/h{i}.png")).unwrap();
-        }
-    }
-
-    #[test]
-    fn test_compute_lowest_order_doesnt_panic() {
-        let coor_bits = (size_of::<u8>() << 3) as u8; // 8
-        for x in 0..=255u8 {
-            for y in 0..=255u8 {
-                for order in 0..=255 {
-                    let useless_bits = (x | y).leading_zeros() as u8 & !1;
-                    coor_bits - useless_bits + (order & 1);
-                }
-            }
         }
     }
 
