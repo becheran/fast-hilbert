@@ -18,6 +18,7 @@ Fast Hilbert 2D curve computation using an efficient *Lookup Table (LUT)* and on
 * Convert from discrete 2D space to 1D hilbert space and reverse
 * Generalized for different unsigned integer input types (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#3](https://github.com/becheran/fast-hilbert/pull/3))
 * Speedup via lowest order computation (thanks [DoubleHyphen](https://github.com/DoubleHyphen) [PR#2](https://github.com/becheran/fast-hilbert/pull/2))
+* Checked versions available on `checked` feature (thanks [FeeFladder](https://github.com/feefladder) [PR#21](https://github.com/becheran/fast-hilbert/pull/21))
 * Very fast using an efficient 512 Byte *LUT*
 * No additional dependency
 

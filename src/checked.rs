@@ -157,13 +157,14 @@ pub fn h2xy_checked<T: Unsigned>(
 ) -> Result<(T, T), OrderError<T>> {
     let max_index = max_index(order)?;
     if h > max_index {
-        return Err(OrderError::OrderExceeded {
+        Err(OrderError::OrderExceeded {
             order,
             max_allowed_index: max_index,
             given_index: h,
-        });
+        })
+    } else {
+        Ok(h2xy(h, order))
     }
-    Ok(h2xy(h, order))
 }
 #[cfg(test)]
 mod tests {
