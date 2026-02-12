@@ -2,7 +2,7 @@
 //!
 //! The conversion from 2D coordinates to the hilbert-curve can be described as a state diagram:
 //!
-//! ``` text  
+//! ``` text
 //!
 //! (xy)  => Discrete input coordinates in 2D space
 //! [hh]  => Hilbert output for the given Input
@@ -10,7 +10,7 @@
 //!
 //!  ┌──────────(01) (11)◄──────────┐
 //!  |┌────────►[11] [00]──────────┐|
-//!  ||           # 3 #            ||  
+//!  ||           # 3 #            ||
 //!  ||         (00) (10)          ||
 //!  ||         [10] [01]          ||
 //!  ||          |▲   ▲|           ||
@@ -40,8 +40,13 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::convert::{From, TryInto};
-use core::ops::{BitAnd, BitOr, BitOrAssign, Shl, ShlAssign, Shr, ShrAssign};
+use core::fmt::Debug;
+use core::ops::{BitAnd, BitOr, BitOrAssign, Not, Shl, ShlAssign, Shr, ShrAssign, Sub};
 
+#[cfg(feature = "checked")]
+mod checked;
+#[cfg(feature = "checked")]
+pub use checked::{h2xy_checked, max_coord, max_index, max_order, xy2h_checked, OrderError};
 pub trait UnsignedBase:
     From<u8>
     + Copy
@@ -55,7 +60,10 @@ pub trait UnsignedBase:
     + Shr<usize, Output = Self>
     + ShrAssign
     + ShlAssign
-    + BitOrAssign
+    + Sub<Self, Output = Self>
+    + Not<Output = Self>
+    + Ord
+    + Debug
 {
     fn leading_zeros(self) -> u32;
     // Save since will only be used for usize <= 8 bit for LUT lookup
@@ -95,7 +103,7 @@ base_impl!(u16);
 base_impl!(u8);
 
 /// Unsigned integer input type which has a double value type as key
-pub trait Unsigned: UnsignedBase
+pub trait Unsigned: UnsignedBase + Into<Self::Key>
 where
     Self::Key: UnsignedBase,
 {
