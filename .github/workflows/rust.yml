@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Markup Link Checker (mlc)
-        uses: becheran/mlc@v0.16.0
+        uses: becheran/mlc@v1.2.0
 
   build:
     runs-on: ubuntu-latest
@@ -26,4 +26,4 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
       - name: Markup Link Checker (mlc)
-        uses: becheran/mlc@v0.14.0
+        uses: becheran/mlc@v1.2.0
