@@ -2,7 +2,7 @@
 //!
 //! The conversion from 2D coordinates to the hilbert-curve can be described as a state diagram:
 //!
-//! ``` text  
+//! ``` text
 //!
 //! (xy)  => Discrete input coordinates in 2D space
 //! [hh]  => Hilbert output for the given Input
@@ -10,7 +10,7 @@
 //!
 //!  ┌──────────(01) (11)◄──────────┐
 //!  |┌────────►[11] [00]──────────┐|
-//!  ||           # 3 #            ||  
+//!  ||           # 3 #            ||
 //!  ||         (00) (10)          ||
 //!  ||         [10] [01]          ||
 //!  ||          |▲   ▲|           ||
@@ -43,10 +43,6 @@ use core::convert::{From, TryInto};
 use core::fmt::Debug;
 use core::ops::{BitAnd, BitOr, BitOrAssign, Not, Shl, ShlAssign, Shr, ShrAssign, Sub};
 
-#[cfg(feature = "checked")]
-mod checked;
-#[cfg(feature = "checked")]
-pub use checked::{h2xy_checked, max_coord, max_index, max_order, xy2h_checked, OrderError};
 pub trait UnsignedBase:
     From<u8>
     + Copy
@@ -132,10 +128,9 @@ impl Unsigned for u8 {
     const SEVEN: Self = 7;
     const SIXTY_THREE: Self::Key = 63;
 }
+
 /// Convert form 2D to 1D hilbert space.
 /// Input type `T` must have half the capacity of the result type. For example (u32, u32) => u64.
-///
-/// Errors if the order does not fit into the coordinate type, or the given coordinates don't fit in the order
 ///
 /// # Arguments
 /// * `x` - Coordinate in 2D space
@@ -167,9 +162,9 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
         200, 7, 196, 214, 87, 146, 145, 76, 13, 194, 67, 213, 148, 19, 208, 143, 14, 193, 128,
     ];
 
-    let coor_bits = (size_of::<T>() << 3) as u8;
-    let useless_bits = (x | y).leading_zeros() as u8 & !1;
-    let lowest_order = coor_bits - useless_bits + (order & 1);
+    let coor_bits = (size_of::<T>() << 3) as u32;
+    let useless_bits = (x | y).leading_zeros() & !1;
+    let lowest_order = (coor_bits - useless_bits) as u8 + (order & 1);
 
     let mut result: T::Key = T::Key::ZERO;
     let mut state = 0u8;
@@ -209,8 +204,6 @@ pub fn xy2h<T: Unsigned>(x: T, y: T, order: u8) -> <T as Unsigned>::Key {
 ///
 /// Input type `T` must have double the capacity of the result types. For example u64 => (u32, u32).
 ///
-/// Errors if the order does not fit into the coordinate type, or the given coordinates don't fit in the order
-///
 /// # Arguments
 /// * `h`     - Coordinate in 1D hilbert space
 /// * `order` - Hilbert curve order
@@ -240,7 +233,6 @@ pub fn h2xy<T: Unsigned>(h: <T as Unsigned>::Key, order: u8) -> (T, T) {
         169, 232, 224, 97, 34, 106, 107, 227, 219, 147, 146, 26, 153, 216, 208, 81, 137, 200, 192,
         65, 2, 74, 75, 195, 68, 5, 13, 140, 20, 92, 93, 213, 22, 94, 95, 215, 143, 206, 198, 71,
     ];
-
     let coor_bits = (size_of::<T>() << 3) as u8;
     let useless_bits = (h.leading_zeros() >> 1) as u8 & !1;
     let lowest_order = coor_bits - useless_bits + (order & 1);
